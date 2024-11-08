@@ -104,3 +104,43 @@ def delete_product(product_id):
         return jsonify({"error": str(e)}), 500
     finally:
         conn.close()
+
+
+
+@product_bp.route('/all', methods=['GET'])
+@admin_required  # Restrict access to admins
+def list_products():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        # Fetch all products
+        cursor.execute("""
+            SELECT ProductID, Name, Description, Price, Size, Color, Material, StockQuantity, CategoryID, SubCategoryID, Featured
+            FROM Product
+        """)
+        products = cursor.fetchall()
+
+        # Format the data as a list of dictionaries
+        product_list = [
+            {
+                "product_id": product["ProductID"],
+                "name": product["Name"],
+                "description": product["Description"],
+                "price": product["Price"],
+                "size": product["Size"],
+                "color": product["Color"],
+                "material": product["Material"],
+                "stock_quantity": product["StockQuantity"],
+                "category_id": product["CategoryID"],
+                "sub_category_id": product["SubCategoryID"],
+                "featured": bool(product["Featured"]),
+            }
+            for product in products
+        ]
+
+        return jsonify({"products": product_list}), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        conn.close()

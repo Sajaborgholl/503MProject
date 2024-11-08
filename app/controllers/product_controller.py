@@ -81,3 +81,26 @@ def update_product(product_id):
         return jsonify({"error": str(e)}), 500
     finally:
         conn.close()
+
+
+
+@product_bp.route('/<int:product_id>/delete', methods=['DELETE'])
+@admin_required  # Ensures only admins can delete products
+def delete_product(product_id):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        # Execute the delete command
+        cursor.execute("DELETE FROM Product WHERE ProductID = ?", (product_id,))
+        conn.commit()
+
+        # Check if the deletion affected any rows (i.e., if the product existed)
+        if cursor.rowcount == 0:
+            return jsonify({"error": "Product not found"}), 404
+
+        return jsonify({"message": "Product deleted successfully"}), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        conn.close()

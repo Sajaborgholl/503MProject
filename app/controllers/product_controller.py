@@ -42,3 +42,42 @@ def add_product():
         conn.close()
 
 
+
+@product_bp.route('/<int:product_id>/update', methods=['PUT'])
+@admin_required  # Ensures only admins can update products
+def update_product(product_id):
+    data = request.get_json()
+
+    # Extract fields that need updating
+    name = data.get('name')
+    description = data.get('description')
+    price = data.get('price')
+    size = data.get('size')
+    color = data.get('color')
+    material = data.get('material')
+    stock_quantity = data.get('stock_quantity')
+    featured = data.get('featured')
+
+    # Connect to the database and perform the update
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("""
+            UPDATE Product
+            SET Name = COALESCE(?, Name),
+                Description = COALESCE(?, Description),
+                Price = COALESCE(?, Price),
+                Size = COALESCE(?, Size),
+                Color = COALESCE(?, Color),
+                Material = COALESCE(?, Material),
+                StockQuantity = COALESCE(?, StockQuantity),
+                Featured = COALESCE(?, Featured)
+            WHERE ProductID = ?
+        """, (name, description, price, size, color, material, stock_quantity, featured, product_id))
+
+        conn.commit()
+        return jsonify({"message": "Product updated successfully"}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        conn.close()

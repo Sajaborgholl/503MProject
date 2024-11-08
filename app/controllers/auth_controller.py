@@ -34,23 +34,26 @@ def login():
     data = request.get_json()
     email = data.get("email")
     password = data.get("password")
-    print(email)
-    print(password)
+    print("Email from request:", email)
+    print("Password from request:", password)
 
     conn = get_db_connection()
     cursor = conn.cursor()
 
-    print ("ok")
+    # Print all admins to confirm connection to the correct database
+    cursor.execute("SELECT * FROM Administrator")
+    all_admins = cursor.fetchall()
+    print("All admins in database:", [dict(admin) for admin in all_admins])
 
     cursor.execute("SELECT * FROM Administrator WHERE Email = ?", (email,))
     user = cursor.fetchone()
 
     if user:
-        print("User found:", user)
-        print("Password from request:", password)
-        print("Stored hashed password:", user["Password"])
+        print("User found:", dict(user))
         is_correct_password = check_password_hash(user["Password"], password)
         print("Does the password match?", is_correct_password)
+    else:
+        print("User not found.")
 
     if user and is_correct_password:
         access_token = create_access_token(
@@ -59,7 +62,6 @@ def login():
         return jsonify(access_token=access_token), 200
     else:
         return jsonify({"error": "Invalid credentials"}), 401
-
 
 
 @auth_bp.route('/logout', methods=['POST'])

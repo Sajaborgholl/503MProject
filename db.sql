@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS Administrator (
     Email TEXT NOT NULL UNIQUE,
     Password TEXT NOT NULL,
     Role TEXT NOT NULL,
+    is_super_admin INTEGER DEFAULT 0,
     FOREIGN KEY (UserID) REFERENCES User(UserID)
 );
 

@@ -6,16 +6,19 @@ from app.controllers.order_controller import order_bp
 from app.controllers.inventory_controller import inventory_bp
 from werkzeug.security import check_password_hash
 from flask_jwt_extended import JWTManager
-
-
+from flask_sqlalchemy import SQLAlchemy
+from flask_migrate import Migrate
+db = SQLAlchemy()
 def create_app():
     # Initialize the Flask app
     app = Flask(__name__)
-
-    # Load configuration settings
-    # Ensure 'config.py' has a 'Config' class
     app.config.from_object('config.Config')
 
+    db.init_app(app)
+    migrate = Migrate(app, db)
+    # Load configuration settings
+    # Ensure 'config.py' has a 'Config' class
+    
     # Initialize session management if using sessions
     Session(app)
     jwt = JWTManager(app)

@@ -6,6 +6,8 @@ from werkzeug.security import check_password_hash, generate_password_hash
 from flask_jwt_extended import create_access_token,  get_jwt_identity, jwt_required
 from db import get_db_connection
 from functools import wraps
+from app.auth.decorators import super_admin_required
+
 import os
 
 auth_bp = Blueprint('auth', __name__)
@@ -29,16 +31,7 @@ def register():
 
 # Route for user login
 
-# Decorator to restrict route to super admin
-def super_admin_required(f):
-    @wraps(f)
-    @jwt_required()
-    def wrapper(*args, **kwargs):
-        current_user = get_jwt_identity()
-        if not current_user.get('is_super_admin'):
-            return jsonify({"error": "Access denied"}), 403
-        return f(*args, **kwargs)
-    return wrapper
+
 
 
 @auth_bp.route('/login', methods=['POST'])

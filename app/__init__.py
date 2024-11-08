@@ -26,7 +26,7 @@ def create_app():
     # Routes for authentication
     app.register_blueprint(auth_bp, url_prefix='/auth')
     # Routes for product management
-    app.register_blueprint(product_bp, url_prefix='/products')
+    app.register_blueprint(product_bp, url_prefix='/product')
     # Routes for order management
     app.register_blueprint(order_bp, url_prefix='/orders')
     app.register_blueprint(inventory_bp, url_prefix='/inventory')

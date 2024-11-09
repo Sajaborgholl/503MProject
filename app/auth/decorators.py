@@ -7,11 +7,18 @@ def super_admin_required(fn):
     @wraps(fn)
     def wrapper(*args, **kwargs):
         verify_jwt_in_request()
-        claims = get_jwt()
-        if not claims.get("is_super_admin"):
+        identity = get_jwt_identity()
+        
+        if not identity:
+            return jsonify({"error": "Authentication required"}), 401
+
+        # Check if the current user is a super admin
+        if identity.get("is_super_admin") != 1:
             return jsonify({"error": "Super Admin access required"}), 403
+
         return fn(*args, **kwargs)
     return wrapper
+
 
 
 def admin_required(f):

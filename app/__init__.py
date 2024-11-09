@@ -3,6 +3,7 @@ from flask_session import Session  # Optional, if using server-side sessions
 from app.controllers.auth_controller import auth_bp
 from app.controllers.product_controller import product_bp
 from app.controllers.order_controller import order_bp
+from app.controllers.admin_controller import admin_bp
 from app.controllers.inventory_controller import inventory_bp
 from werkzeug.security import check_password_hash
 from flask_jwt_extended import JWTManager
@@ -25,6 +26,7 @@ def create_app():
     # Register blueprints
     # Routes for authentication
     app.register_blueprint(auth_bp, url_prefix='/auth')
+    app.register_blueprint(admin_bp, url_prefix='/admin')
     # Routes for product management
     app.register_blueprint(product_bp, url_prefix='/product')
     # Routes for order management

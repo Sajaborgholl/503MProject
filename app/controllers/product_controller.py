@@ -144,3 +144,41 @@ def list_products():
         return jsonify({"error": str(e)}), 500
     finally:
         conn.close()
+
+
+
+# Route for uploading a product image
+@product_bp.route('/<int:product_id>/upload-image', methods=['POST'])
+@admin_required  # Only allow admins
+def upload_product_image(product_id):
+    if 'image' not in request.files:
+        return jsonify({"error": "No file part"}), 400
+    
+    file = request.files['image']
+    if file.filename == '':
+        return jsonify({"error": "No selected file"}), 400
+
+    if file and allowed_file(file.filename):
+        # Secure filename to prevent directory traversal attacks
+        filename = secure_filename(file.filename)
+        file_path = os.path.join(current_app.config['UPLOAD_FOLDER'], filename)
+        
+        # Ensure the upload folder exists
+        os.makedirs(current_app.config['UPLOAD_FOLDER'], exist_ok=True)
+        
+        # Save the file
+        file.save(file_path)
+        
+        # Store the image path in the database
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            "INSERT INTO Product_Image (ProductID, ImageURL) VALUES (?, ?)",
+            (product_id, file_path)
+        )
+        conn.commit()
+        conn.close()
+
+        return jsonify({"message": "Image uploaded successfully", "image_url": file_path}), 201
+    else:
+        return jsonify({"error": "File type not allowed"}), 400

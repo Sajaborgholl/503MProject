@@ -36,3 +36,85 @@ def add_admin():
     conn.close()
 
     return jsonify({"message": "Admin added successfully"}), 201
+
+
+@admin_bp.route('/<int:admin_id>/delete', methods=['DELETE'])
+@super_admin_required  # Restrict to super admin only
+def delete_admin(admin_id):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        # Ensure the admin exists
+        cursor.execute("SELECT * FROM Administrator WHERE UserID = ?", (admin_id,))
+        admin = cursor.fetchone()
+        if not admin:
+            return jsonify({"error": "Admin not found"}), 404
+
+        # Delete the admin
+        cursor.execute("DELETE FROM Administrator WHERE UserID = ?", (admin_id,))
+        conn.commit()
+        return jsonify({"message": "Admin deleted successfully"}), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        conn.close()
+
+@admin_bp.route('/<int:admin_id>/update', methods=['PUT'])
+@super_admin_required  # Only super admins can update admin details
+def update_admin(admin_id):
+    data = request.get_json()
+    email = data.get("email")
+    role = data.get("role")  # Optional field to update admin role
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        # Ensure the admin exists
+        cursor.execute("SELECT * FROM Administrator WHERE UserID = ?", (admin_id,))
+        admin = cursor.fetchone()
+        if not admin:
+            return jsonify({"error": "Admin not found"}), 404
+
+        # Update admin details
+        cursor.execute(
+            "UPDATE Administrator SET Email = ?, Role = ? WHERE UserID = ?",
+            (email or admin["Email"], role or admin["Role"], admin_id)
+        )
+        conn.commit()
+        return jsonify({"message": "Admin updated successfully"}), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        conn.close()
+
+
+@admin_bp.route('/all', methods=['GET'])
+@super_admin_required  # Only super admins can access this list
+def list_admins():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        # Fetch all admins
+        cursor.execute("SELECT UserID, Name, Email, Role, is_super_admin FROM Administrator")
+        admins = cursor.fetchall()
+
+        # Format the data as a list of dictionaries
+        admin_list = [
+            {
+                "user_id": admin["UserID"],
+                "name": admin["Name"],
+                "email": admin["Email"],
+                "role": admin["Role"],
+                "is_super_admin": bool(admin["is_super_admin"])
+            }
+            for admin in admins
+        ]
+
+        return jsonify({"admins": admin_list}), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        conn.close()

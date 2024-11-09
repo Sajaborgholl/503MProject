@@ -22,3 +22,6 @@ class Config:
 
     # Debug mode (set to False in production)
     DEBUG = True  # Change to False in production
+
+    UPLOAD_FOLDER = os.path.join(os.getcwd(), 'uploads')  # Define where files will be stored
+    ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}

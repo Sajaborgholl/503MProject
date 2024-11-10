@@ -221,3 +221,28 @@ CREATE TABLE IF NOT EXISTS Warehouse (
     WarehouseID INTEGER PRIMARY KEY,
     Location TEXT NOT NULL
 );
+
+
+-- Promotion Table
+CREATE TABLE IF NOT EXISTS Promotion (
+    PromotionID INTEGER PRIMARY KEY,
+    Name TEXT NOT NULL,
+    DiscountRate REAL NOT NULL, -- Discount as a percentage, e.g., 0.10 for 10%
+    StartDate TEXT NOT NULL, -- Start date of the promotion (ISO format YYYY-MM-DD)
+    EndDate TEXT NOT NULL, -- End date of the promotion (ISO format YYYY-MM-DD)
+    TargetTier TEXT CHECK(TargetTier IN ('Normal', 'Premium', 'Gold')), -- Target membership tier
+    Description TEXT
+);
+
+-- Updated Promotion_Association Table
+CREATE TABLE IF NOT EXISTS Promotion_Association (
+    AssociationID INTEGER PRIMARY KEY,
+    PromotionID INTEGER NOT NULL,
+    ProductID INTEGER, -- Nullable for category-based promotions
+    CategoryID INTEGER, -- Nullable for product-based promotions
+    SubCategoryID INTEGER, -- Nullable for product-based promotions
+    FOREIGN KEY (PromotionID) REFERENCES Promotion(PromotionID),
+    FOREIGN KEY (ProductID) REFERENCES Product(ProductID),
+    FOREIGN KEY (CategoryID) REFERENCES Category(CategoryID),
+    FOREIGN KEY (SubCategoryID) REFERENCES SubCategory(SubCategoryID)
+);

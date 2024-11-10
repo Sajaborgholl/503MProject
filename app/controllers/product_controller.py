@@ -2,11 +2,11 @@
 from flask import Blueprint, request, jsonify, current_app
 from db import get_db_connection
 from app.auth.decorators import admin_required
-from app.utils.file_upload import save_image_path_to_database, save_image_to_server
+from app.utils.file_upload import save_image_path_to_database, save_image_to_server, allowed_file
 from werkzeug.utils import secure_filename
-import os
-import sqlite3
-import time
+import csv
+from io import StringIO
+
 
 product_bp = Blueprint('product', __name__)
 
@@ -170,3 +170,60 @@ def upload_product_image(product_id):
             return jsonify({"error": f"Database error: {str(e)}"}), 500
     else:
         return jsonify({"error": "Invalid file type"}), 400
+    
+
+@product_bp.route('/bulk-upload', methods=['POST'])
+@admin_required  # Only accessible to admins
+def bulk_upload_products():
+    if 'file' not in request.files:
+        return jsonify({"error": "No file part in the request"}), 400
+    
+    file = request.files['file']
+
+    # Check if the file is a CSV using the allowed_file function
+    if not allowed_file(file.filename):
+        return jsonify({"error": "Invalid file type, only CSV files are allowed"}), 400
+
+    try:
+        # Decode the file into a string
+        stream = StringIO(file.stream.read().decode("UTF8"), newline=None)
+        csv_reader = csv.DictReader(stream)
+
+        # Collect product data for bulk insertion
+        products = []
+        for row in csv_reader:
+            # Ensure required fields are present in each row
+            if 'Name' in row and 'Price' in row and 'StockQuantity' in row:
+                product = (
+                    row['Name'],
+                    row.get('Description', ''),
+                    float(row['Price']),
+                    row.get('Size', ''),
+                    row.get('Color', ''),
+                    row.get('Material', ''),
+                    int(row['StockQuantity']),
+                    int(row.get('CategoryID', 0)),
+                    int(row.get('SubCategoryID', 0))
+                )
+                products.append(product)
+            else:
+                return jsonify({"error": "Missing required fields in CSV file"}), 400
+
+        # Bulk insert into the Product table
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.executemany(
+            """
+            INSERT INTO Product 
+            (Name, Description, Price, Size, Color, Material, StockQuantity, CategoryID, SubCategoryID)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            products
+        )
+        conn.commit()
+        conn.close()
+
+        return jsonify({"message": f"{len(products)} products uploaded successfully."}), 201
+
+    except Exception as e:
+        return jsonify({"error": f"An error occurred during upload: {str(e)}"}), 500

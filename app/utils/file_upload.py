@@ -4,7 +4,7 @@ from flask import current_app
 import sqlite3
 from db import get_db_connection
 
-ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'csv'}
 
 def allowed_file(filename):
     """Check if the file has an allowed extension."""

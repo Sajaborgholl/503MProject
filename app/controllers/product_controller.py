@@ -1,7 +1,12 @@
 # app/controllers/product_controller.py
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, current_app
 from db import get_db_connection
 from app.auth.decorators import admin_required
+from app.utils.file_upload import save_image_path_to_database, save_image_to_server
+from werkzeug.utils import secure_filename
+import os
+import sqlite3
+import time
 
 product_bp = Blueprint('product', __name__)
 
@@ -145,40 +150,23 @@ def list_products():
     finally:
         conn.close()
 
-
-
-# Route for uploading a product image
 @product_bp.route('/<int:product_id>/upload-image', methods=['POST'])
-@admin_required  # Only allow admins
+@admin_required
 def upload_product_image(product_id):
     if 'image' not in request.files:
-        return jsonify({"error": "No file part"}), 400
-    
+        return jsonify({"error": "No image file found in request"}), 400
+
     file = request.files['image']
-    if file.filename == '':
-        return jsonify({"error": "No selected file"}), 400
-
-    if file and allowed_file(file.filename):
-        # Secure filename to prevent directory traversal attacks
-        filename = secure_filename(file.filename)
-        file_path = os.path.join(current_app.config['UPLOAD_FOLDER'], filename)
-        
-        # Ensure the upload folder exists
-        os.makedirs(current_app.config['UPLOAD_FOLDER'], exist_ok=True)
-        
-        # Save the file
-        file.save(file_path)
-        
-        # Store the image path in the database
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute(
-            "INSERT INTO Product_Image (ProductID, ImageURL) VALUES (?, ?)",
-            (product_id, file_path)
-        )
-        conn.commit()
-        conn.close()
-
-        return jsonify({"message": "Image uploaded successfully", "image_url": file_path}), 201
+    
+    # Step 1: Save the file to the server and get the file path
+    file_path = save_image_to_server(file, product_id)  # Pass product_id to save in a specific folder
+    
+    if file_path:
+        # Step 2: Save the file path in the database
+        try:
+            save_image_path_to_database(product_id, file_path)
+            return jsonify({"message": "Image uploaded and path saved successfully", "image_url": file_path}), 201
+        except Exception as e:
+            return jsonify({"error": f"Database error: {str(e)}"}), 500
     else:
-        return jsonify({"error": "File type not allowed"}), 400
+        return jsonify({"error": "Invalid file type"}), 400

@@ -1,11 +1,11 @@
 from flask import Blueprint, request, jsonify
-from app.auth.decorators import admin_required
+from app.auth.decorators import role_required
 from db import get_db_connection
 
 promotion_bp = Blueprint('promotions', __name__)
 
 @promotion_bp.route('/add', methods=['POST'])
-@admin_required
+@role_required(["Product Manager", "Super Admin"])
 def add_promotion():
     data = request.get_json()
 
@@ -64,7 +64,7 @@ def add_promotion():
 
 
 @promotion_bp.route('/delete/<int:promotion_id>', methods=['DELETE'])
-@admin_required
+@role_required(["Product Manager", "Super Admin"])
 def delete_promotion(promotion_id):
     conn = get_db_connection()
     cursor = conn.cursor()

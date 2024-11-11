@@ -1,72 +1,116 @@
 # app/controllers/product_controller.py
 from flask import Blueprint, request, jsonify, current_app
 from db import get_db_connection
-from app.auth.decorators import admin_required
+from app.auth.decorators import role_required
 from app.utils.file_upload import save_image_path_to_database, save_image_to_server, allowed_file
 from werkzeug.utils import secure_filename
 import csv
 from io import StringIO
-
+from app.utils.validators import (
+    is_valid_string, is_valid_price, is_valid_quantity, is_valid_id,
+    sanitize_string, validate_warehouse_stock
+)
 
 product_bp = Blueprint('product', __name__)
 
+
 @product_bp.route('/add', methods=['POST'])
-@admin_required  # Ensure only admins can add products
+@role_required(["Product Manager", "Super Admin"])
 def add_product():
     data = request.get_json()
-    
-    # Extract product details from the JSON payload
-    name = data.get('name')
-    description = data.get('description')
+
+    # Use validators for input sanitization and validation
+    name = sanitize_string(data.get('name'))
+    description = sanitize_string(data.get('description'))
     price = data.get('price')
-    size = data.get('size')
-    color = data.get('color')
-    material = data.get('material')
+    size = sanitize_string(data.get('size'))
+    color = sanitize_string(data.get('color'))
+    material = sanitize_string(data.get('material'))
     stock_quantity = data.get('stock_quantity')
     category_id = data.get('category_id')
     subcategory_id = data.get('subcategory_id')
-    featured = data.get('featured', 0)  # Defaults to 0 if not provided
-    
-    # Validate required fields
-    if not name or price is None or stock_quantity is None:
-        return jsonify({"error": "Name, price, and stock quantity are required fields."}), 400
+    featured = data.get('featured', 0)
+    warehouse_stock = data.get('warehouse_stock', [])
 
-    # Connect to the database and insert the new product
+    # Validate required fields
+    if not (is_valid_string(name) and is_valid_price(price) and is_valid_quantity(stock_quantity)):
+        return jsonify({"error": "Invalid input for name, price, or stock quantity."}), 400
+
+    # Validate category and subcategory IDs if provided
+    if category_id and not is_valid_id(category_id):
+        return jsonify({"error": "Invalid category ID."}), 400
+    if subcategory_id and not is_valid_id(subcategory_id):
+        return jsonify({"error": "Invalid subcategory ID."}), 400
+
+    try:
+        # Validate warehouse stock entries using utility function
+        sanitized_warehouse_stock = validate_warehouse_stock(warehouse_stock)
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+
     conn = get_db_connection()
     cursor = conn.cursor()
     try:
+        # Insert product details
         cursor.execute("""
             INSERT INTO Product (Name, Description, Price, Size, Color, Material, StockQuantity, CategoryID, SubCategoryID, Featured)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (name, description, price, size, color, material, stock_quantity, category_id, subcategory_id, featured))
+        product_id = cursor.lastrowid
+
+        # Initialize stock for each warehouse
+        for stock in sanitized_warehouse_stock:
+            cursor.execute("""
+                INSERT INTO Product_Warehouse (ProductID, WarehouseID, StockQuantity)
+                VALUES (?, ?, ?)
+            """, (product_id, stock["warehouse_id"], stock["quantity"]))
+
         conn.commit()
         return jsonify({"message": "Product added successfully"}), 201
+
     except Exception as e:
+        conn.rollback()
         return jsonify({"error": str(e)}), 500
     finally:
         conn.close()
 
 
-
 @product_bp.route('/<int:product_id>/update', methods=['PUT'])
-@admin_required  # Ensures only admins can update products
+@role_required(["Product Manager", "Super Admin"])
 def update_product(product_id):
     data = request.get_json()
 
-    # Extract fields that need updating
-    name = data.get('name')
-    description = data.get('description')
+    # Sanitize and validate product details
+    name = sanitize_string(data.get('name'))
+    description = sanitize_string(data.get('description'))
     price = data.get('price')
-    size = data.get('size')
-    color = data.get('color')
-    material = data.get('material')
-    stock_quantity = data.get('stock_quantity')
+    size = sanitize_string(data.get('size'))
+    color = sanitize_string(data.get('color'))
+    material = sanitize_string(data.get('material'))
+    stock_quantity = data.get('stock_quantity')  # For overall stock
     featured = data.get('featured')
+    warehouse_updates = data.get('warehouse_updates', [])  # [{"warehouse_id": 1, "quantity": 50}]
 
-    # Connect to the database and perform the update
+    # Validate optional fields
+    if name and not is_valid_string(name):
+        return jsonify({"error": "Invalid product name"}), 400
+    if price is not None and not is_valid_price(price):
+        return jsonify({"error": "Price must be a positive number"}), 400
+    if stock_quantity is not None and not is_valid_quantity(stock_quantity):
+        return jsonify({"error": "Stock quantity must be a non-negative integer"}), 400
+    if featured is not None and not isinstance(featured, int):
+        return jsonify({"error": "Featured must be an integer (0 or 1)"}), 400
+
+    # Validate and sanitize warehouse updates
+    try:
+        sanitized_warehouse_updates = validate_warehouse_stock(warehouse_updates)
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+
     conn = get_db_connection()
     cursor = conn.cursor()
     try:
+        # Update product details
         cursor.execute("""
             UPDATE Product
             SET Name = COALESCE(?, Name),
@@ -80,17 +124,24 @@ def update_product(product_id):
             WHERE ProductID = ?
         """, (name, description, price, size, color, material, stock_quantity, featured, product_id))
 
+        # Update stock in specified warehouses
+        for update in sanitized_warehouse_updates:
+            cursor.execute("""
+                UPDATE Product_Warehouse SET StockQuantity = ?
+                WHERE ProductID = ? AND WarehouseID = ?
+            """, (update["quantity"], product_id, update["warehouse_id"]))
+
         conn.commit()
         return jsonify({"message": "Product updated successfully"}), 200
+
     except Exception as e:
+        conn.rollback()
         return jsonify({"error": str(e)}), 500
     finally:
         conn.close()
 
-
-
 @product_bp.route('/<int:product_id>/delete', methods=['DELETE'])
-@admin_required  # Ensures only admins can delete products
+@role_required(["Product Manager", "Super Admin"]) # Ensures only admins can delete products
 def delete_product(product_id):
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -113,7 +164,7 @@ def delete_product(product_id):
 
 
 @product_bp.route('/all', methods=['GET'])
-@admin_required  # Restrict access to admins
+@role_required(["Product Manager", "Super Admin"])  # Restrict access to admins
 def list_products():
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -151,7 +202,7 @@ def list_products():
         conn.close()
 
 @product_bp.route('/<int:product_id>/upload-image', methods=['POST'])
-@admin_required
+@role_required(["Product Manager", "Super Admin"])
 def upload_product_image(product_id):
     if 'image' not in request.files:
         return jsonify({"error": "No image file found in request"}), 400
@@ -171,30 +222,29 @@ def upload_product_image(product_id):
     else:
         return jsonify({"error": "Invalid file type"}), 400
     
-
 @product_bp.route('/bulk-upload', methods=['POST'])
-@admin_required  # Only accessible to admins
+@role_required(["Product Manager", "Super Admin"])
 def bulk_upload_products():
     if 'file' not in request.files:
         return jsonify({"error": "No file part in the request"}), 400
     
     file = request.files['file']
-
-    # Check if the file is a CSV using the allowed_file function
     if not allowed_file(file.filename):
         return jsonify({"error": "Invalid file type, only CSV files are allowed"}), 400
 
     try:
-        # Decode the file into a string
         stream = StringIO(file.stream.read().decode("UTF8"), newline=None)
         csv_reader = csv.DictReader(stream)
+        conn = get_db_connection()
+        cursor = conn.cursor()
 
-        # Collect product data for bulk insertion
-        products = []
         for row in csv_reader:
-            # Ensure required fields are present in each row
             if 'Name' in row and 'Price' in row and 'StockQuantity' in row:
-                product = (
+                cursor.execute("""
+                    INSERT INTO Product 
+                    (Name, Description, Price, Size, Color, Material, StockQuantity, CategoryID, SubCategoryID)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
                     row['Name'],
                     row.get('Description', ''),
                     float(row['Price']),
@@ -204,106 +254,22 @@ def bulk_upload_products():
                     int(row['StockQuantity']),
                     int(row.get('CategoryID', 0)),
                     int(row.get('SubCategoryID', 0))
-                )
-                products.append(product)
-            else:
-                return jsonify({"error": "Missing required fields in CSV file"}), 400
+                ))
+                product_id = cursor.lastrowid
 
-        # Bulk insert into the Product table
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.executemany(
-            """
-            INSERT INTO Product 
-            (Name, Description, Price, Size, Color, Material, StockQuantity, CategoryID, SubCategoryID)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            products
-        )
+                # WarehouseStock is a field with warehouse-specific quantities in "WarehouseID:Quantity" format
+                warehouse_stock = row.get('WarehouseStock', '')
+                for stock_entry in warehouse_stock.split(';'):
+                    warehouse_id, quantity = map(int, stock_entry.split(':'))
+                    cursor.execute("""
+                        INSERT INTO Product_Warehouse (ProductID, WarehouseID, StockQuantity)
+                        VALUES (?, ?, ?)
+                    """, (product_id, warehouse_id, quantity))
+
         conn.commit()
-        conn.close()
-
-        return jsonify({"message": f"{len(products)} products uploaded successfully."}), 201
+        return jsonify({"message": "Bulk upload completed successfully."}), 201
 
     except Exception as e:
         return jsonify({"error": f"An error occurred during upload: {str(e)}"}), 500
-    
-@product_bp.route('/promotions', methods=['POST'])
-@admin_required
-def add_promotion():
-    data = request.get_json()
-
-    # Retrieve the promotion details
-    name = data.get("name")
-    discount_rate = data.get("discount_rate")
-    start_date = data.get("start_date")
-    end_date = data.get("end_date")
-    target_tier = data.get("target_tier")
-    description = data.get("description")
-
-    # Retrieve the target entities
-    product_ids = data.get("product_ids", [])  # List of product IDs
-    category_id = data.get("category_id")       # Category ID
-    subcategory_id = data.get("subcategory_id") # Subcategory ID
-
-    conn = get_db_connection()
-    cursor = conn.cursor()
-
-    try:
-        # Insert the promotion details
-        cursor.execute(
-            """
-            INSERT INTO Promotion (Name, DiscountRate, StartDate, EndDate, TargetTier, Description)
-            VALUES (?, ?, ?, ?, ?, ?)
-            """,
-            (name, discount_rate, start_date, end_date, target_tier, description)
-        )
-        promotion_id = cursor.lastrowid  # Get the new promotion's ID
-
-        # Associate promotion with products, categories, or subcategories
-        if product_ids:
-            for product_id in product_ids:
-                cursor.execute(
-                    "INSERT INTO Product_Promotion (PromotionID, ProductID) VALUES (?, ?)",
-                    (promotion_id, product_id)
-                )
-        elif category_id:
-            cursor.execute(
-                "INSERT INTO Product_Promotion (PromotionID, CategoryID) VALUES (?, ?)",
-                (promotion_id, category_id)
-            )
-        elif subcategory_id:
-            cursor.execute(
-                "INSERT INTO Product_Promotion (PromotionID, SubCategoryID) VALUES (?, ?)",
-                (promotion_id, subcategory_id)
-            )
-
-        conn.commit()
-        return jsonify({"message": "Promotion added successfully"}), 201
-    except Exception as e:
-        conn.rollback()
-        return jsonify({"error": str(e)}), 500
-    finally:
-        conn.close()
-
-
-@product_bp.route('/promotions/<int:promotion_id>', methods=['DELETE'])
-@admin_required
-def delete_promotion(promotion_id):
-    conn = get_db_connection()
-    cursor = conn.cursor()
-
-    try:
-        # Delete from the association table first to avoid foreign key constraints
-        cursor.execute("DELETE FROM Promotion_Association WHERE PromotionID = ?", (promotion_id,))
-
-        # Delete the promotion itself
-        cursor.execute("DELETE FROM Promotion WHERE PromotionID = ?", (promotion_id,))
-
-        conn.commit()
-        return jsonify({"message": "Promotion deleted successfully"}), 200
-    except Exception as e:
-        conn.rollback()
-        return jsonify({"error": f"An error occurred: {str(e)}"}), 500
     finally:
         conn.close()

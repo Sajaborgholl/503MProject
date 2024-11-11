@@ -5,6 +5,16 @@ from app.auth.decorators import super_admin_required
 
 admin_bp = Blueprint('admin', __name__)
 
+import re
+from werkzeug.security import generate_password_hash
+from flask import Blueprint, request, jsonify
+from app.auth.decorators import super_admin_required
+from db import get_db_connection
+
+admin_bp = Blueprint('admin', __name__)
+
+# Define password pattern for validation
+PASSWORD_PATTERN = r'^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$'
 
 @admin_bp.route('/add-admin', methods=['POST'])
 @super_admin_required
@@ -13,29 +23,52 @@ def add_admin():
     name = data.get("name")
     email = data.get("email")
     password = data.get("password")
+    role_ids = data.get("role_ids", [])  # List of role IDs to assign to the admin
 
     if not name or not email or not password:
         return jsonify({"error": "Name, email, and password are required"}), 400
 
+    # Validate password
+    if not re.match(PASSWORD_PATTERN, password):
+        return jsonify({
+            "error": "Password must be at least 8 characters long, include one uppercase letter, "
+                     "one lowercase letter, one digit, and one special character (@$!%*?&)."
+        }), 400
+
     conn = get_db_connection()
     cursor = conn.cursor()
 
-    # Check if the email is already in use
-    cursor.execute("SELECT * FROM Administrator WHERE Email = ?", (email,))
-    if cursor.fetchone():
-        return jsonify({"error": "Admin with this email already exists"}), 409
+    try:
+        # Check if the email is already in use
+        cursor.execute("SELECT * FROM Administrator WHERE Email = ?", (email,))
+        if cursor.fetchone():
+            return jsonify({"error": "Admin with this email already exists"}), 409
 
-    # Insert new admin with hashed password
-    hashed_password = generate_password_hash(password)
-    cursor.execute(
-        "INSERT INTO Administrator (Name, Email, Password, Role) VALUES (?, ?, ?, ?)",
-        (name, email, hashed_password, 'Admin')
-    )
+        # Insert new admin with hashed password
+        hashed_password = generate_password_hash(password)
+        cursor.execute(
+            "INSERT INTO Administrator (Name, Email, Password, Role, is_super_admin) VALUES (?, ?, ?, ?, ?)",
+            (name, email, hashed_password, 'Admin', 0)
+        )
+        
+        # Get the new admin's ID
+        admin_id = cursor.lastrowid
 
-    conn.commit()
-    conn.close()
+        # Assign roles in the Admin_Role table
+        for role_id in role_ids:
+            cursor.execute(
+                "INSERT INTO Admin_Role (AdminID, RoleID) VALUES (?, ?)",
+                (admin_id, role_id)
+            )
 
-    return jsonify({"message": "Admin added successfully"}), 201
+        conn.commit()
+        return jsonify({"message": "Admin added and roles assigned successfully"}), 201
+
+    except Exception as e:
+        conn.rollback()
+        return jsonify({"error": str(e)}), 500
+    finally:
+        conn.close()
 
 
 @admin_bp.route('/<int:admin_id>/delete', methods=['DELETE'])

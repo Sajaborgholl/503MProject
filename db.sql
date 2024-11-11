@@ -246,3 +246,28 @@ CREATE TABLE IF NOT EXISTS Promotion_Association (
     FOREIGN KEY (CategoryID) REFERENCES Category(CategoryID),
     FOREIGN KEY (SubCategoryID) REFERENCES SubCategory(SubCategoryID)
 );
+
+
+CREATE TABLE IF NOT EXISTS Role (
+    RoleID INTEGER PRIMARY KEY,
+    RoleName TEXT NOT NULL UNIQUE CHECK(RoleName IN ('Order Manager', 'Inventory Manager', 'Product Manager'))
+);
+
+
+CREATE TABLE IF NOT EXISTS Admin_Role (
+    AdminID INTEGER,
+    RoleID INTEGER,
+    PRIMARY KEY (AdminID, RoleID),
+    FOREIGN KEY (AdminID) REFERENCES Administrator(UserID),
+    FOREIGN KEY (RoleID) REFERENCES Role(RoleID)
+);
+
+
+CREATE TABLE IF NOT EXISTS Product_Warehouse (
+    WarehouseID INTEGER,
+    ProductID INTEGER,
+    StockQuantity INTEGER NOT NULL,
+    PRIMARY KEY (WarehouseID, ProductID),
+    FOREIGN KEY (WarehouseID) REFERENCES Warehouse(WarehouseID),
+    FOREIGN KEY (ProductID) REFERENCES Product(ProductID)
+);

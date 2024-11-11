@@ -1,45 +1,73 @@
-# app/controllers/inventory_controller.py
 from flask import Blueprint, jsonify
-from db import get_db_connection  # Use a function to connect to the database
+from db import get_db_connection
+from app.auth.decorators import role_required
+from app.utils.inventory import (
+    calculate_inventory_turnover,
+    calculate_popular_products,
+    predict_future_demand
+)
 
 inventory_bp = Blueprint('inventory', __name__)
 
+# Route to get real-time inventory levels across warehouses
+@inventory_bp.route('/realtime-inventory', methods=['GET'])
+@role_required(["Inventory Manager", "Super Admin"])
+def get_realtime_inventory():
+    """Fetch real-time stock levels for each product across all warehouses."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
 
-@inventory_bp.route('/', methods=['GET'])
-def get_inventory():
-    low_stock_threshold = 10  # Define a threshold for low stock
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
+    # Query to fetch product stock levels across warehouses
+    cursor.execute("""
+        SELECT p.ProductID, p.Name AS ProductName, pw.WarehouseID, pw.StockQuantity
+        FROM Product p
+        JOIN Product_Warehouse pw ON p.ProductID = pw.ProductID
+    """)
+    inventory_data = cursor.fetchall()
 
-        # Query to fetch products, their stock, category, and location if needed
-        query = """
-        SELECT Product.ProductID, Product.Name, Product.StockQuantity, Category.Name AS CategoryName,
-               Warehouse.Location AS WarehouseLocation
-        FROM Product
-        JOIN Category ON Product.CategoryID = Category.CategoryID
-        LEFT JOIN Warehouse ON Warehouse.WarehouseID = Product.ProductID
-        """
+    # Organize data by product with warehouse-specific details
+    inventory_report = {}
+    for item in inventory_data:
+        product_id = item["ProductID"]
+        warehouse_id = item["WarehouseID"]
+        stock_quantity = item["StockQuantity"]
 
-        cursor.execute(query)
-        products = cursor.fetchall()
-
-        # Format inventory data for the response
-        inventory_data = [
-            {
-                "product_id": product["ProductID"],
-                "name": product["Name"],
-                "stock_quantity": product["StockQuantity"],
-                "category": product["CategoryName"],
-                "warehouse_location": product["WarehouseLocation"],
-                "low_stock_alert": "Yes" if product["StockQuantity"] < low_stock_threshold else "No"
+        # Initialize the product entry if it doesn't exist
+        if product_id not in inventory_report:
+            inventory_report[product_id] = {
+                "product_name": item["ProductName"],
+                "warehouses": []
             }
-            for product in products
-        ]
 
-        return jsonify({"inventory": inventory_data}), 200
+        # Add warehouse-specific stock details
+        inventory_report[product_id]["warehouses"].append({
+            "warehouse_id": warehouse_id,
+            "stock_quantity": stock_quantity
+        })
 
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-    finally:
-        conn.close()
+    conn.close()
+    return jsonify(inventory_report), 200
+
+# Route for generating a comprehensive inventory report
+@inventory_bp.route('/inventory-report', methods=['GET'])
+@role_required(["Inventory Manager", "Super Admin"])
+def generate_inventory_report():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    # 1. Inventory Turnover
+    turnover_report = calculate_inventory_turnover(cursor)
+
+    # 2. Most Popular Products
+    popular_products_report = calculate_popular_products(cursor)
+
+    # 3. Demand Prediction (Optional)
+    demand_prediction_report = predict_future_demand(cursor)
+
+    conn.close()
+
+    return jsonify({
+        "inventory_turnover": turnover_report,
+        "popular_products": popular_products_report,
+        "demand_prediction": demand_prediction_report
+    }), 200

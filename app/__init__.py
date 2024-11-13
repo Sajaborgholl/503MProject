@@ -9,6 +9,7 @@ from app.controllers.promotion_controller import promotion_bp
 from flask_jwt_extended import JWTManager
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
+from flask_cors import CORS
 
 # Initialize extensions
 db = SQLAlchemy()
@@ -20,6 +21,9 @@ def create_app():
     
     # Load configuration settings from 'config.py'
     app.config.from_object('config.Config')
+
+    # Initialize CORS to allow cross-origin requests
+    CORS(app)  # This will allow all origins by default
 
     # Initialize database with Flask app
     db.init_app(app)

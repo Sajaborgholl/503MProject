@@ -8,6 +8,8 @@ function ProtectedRoute({ children }) {
 
   useEffect(() => {
     if (!token) {
+      // Clear localStorage or any specific key if required
+      localStorage.removeItem('token');
       navigate('/'); // Redirect to login if no token exists
     }
   }, [token, navigate]);

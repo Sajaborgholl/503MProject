@@ -1,3 +1,5 @@
+// src/components/auth_login.js
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './AuthLogin.css';
@@ -28,10 +30,12 @@ function AuthLogin() {
         navigate('/dashboard');
       } else {
         setError(data.error || 'Login failed');
+        setEmail('');
         setPassword(''); // Clear password field if login fails
       }
     } catch (error) {
       setError('Network error');
+      setEmail('');
       setPassword(''); // Clear password field on network error
     }
   };
@@ -53,7 +57,22 @@ function AuthLogin() {
     };
     resetOnNavigate();
   }, [isAuthenticated]);
-  
+
+  useEffect(() => {
+    // Clear fields before the page unloads
+    const handleBeforeUnload = () => {
+      setEmail('');
+      setPassword('');
+      setError('');
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, []);
+
   return (
     <div className="login-container">
       <div className="login-form">
@@ -61,9 +80,10 @@ function AuthLogin() {
         {isAuthenticated ? (
           <p>Welcome! You are now logged in.</p>
         ) : (
-          <form onSubmit={handleLogin} autoComplete="off">
+          <form onSubmit={handleLogin} autoComplete="new-password">
             <input
               type="email"
+              name="email"
               placeholder="Email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -72,11 +92,12 @@ function AuthLogin() {
             />
             <input
               type="password"
+              name="password"
               placeholder="Password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              autoComplete="off"
+              autoComplete="new-password"
             />
             <button type="submit">Login</button>
           </form>

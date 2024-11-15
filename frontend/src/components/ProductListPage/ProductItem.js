@@ -15,6 +15,7 @@ function ProductItem({ product, onDelete }) {
   return (
     <>
       <ListItem
+        button={true}  // Add this prop if you want ListItem to behave like a button
         secondaryAction={
           <>
             <IconButton edge="end" aria-label="edit" onClick={handleEdit}>

@@ -81,8 +81,9 @@ function Dashboard() {
         <List>
           {navigationItems.map((item) => (
             <ListItem button key={item.text} onClick={() => navigate(item.path)}>
-              <ListItemText primary={item.text} />
-            </ListItem>
+            <ListItemText primary={item.text} />
+          </ListItem>
+          
           ))}
         </List>
       </Drawer>

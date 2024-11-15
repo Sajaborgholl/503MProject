@@ -1,27 +1,23 @@
 import os
-
-
+from datetime import timedelta
 class Config:
-    # Secret key for Flask session security
     SECRET_KEY = os.environ.get('SECRET_KEY') or os.urandom(24)
-
-    # Session configuration
-    SESSION_TYPE = 'filesystem'                # Storing sessions on the file system
-    SESSION_PERMANENT = False                  # Sessions are not permanent by default
-    # Adds extra security by signing session cookies
+    SESSION_TYPE = 'filesystem'
+    SESSION_PERMANENT = False
     SESSION_USE_SIGNER = True
 
-    # Database configuration
-    SQLALCHEMY_DATABASE_URI = 'sqlite:///yourdatabase.db'  # SQLite database URI
-    # Disable event notifications to save resources
+    SQLALCHEMY_DATABASE_URI = 'sqlite:///yourdatabase.db'
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
-    # JWT configuration for authentication
-    # Secret key for JWT encoding
     JWT_SECRET_KEY = os.environ.get('JWT_SECRET_KEY') or 'your_jwt_secret_key'
+    JWT_TOKEN_LOCATION = ['cookies']
+    JWT_COOKIE_SECURE = False  # Only send cookies over HTTPS in production
+    JWT_ACCESS_COOKIE_PATH = '/'
+    JWT_ACCESS_COOKIE_NAME = "access_token_cookie"
+    JWT_COOKIE_CSRF_PROTECT = True  # Protect cookies from CSRF attacks
+    JWT_ACCESS_TOKEN_EXPIRES = timedelta(hours=1)
 
-    # Debug mode (set to False in production)
     DEBUG = True  # Change to False in production
 
-    UPLOAD_FOLDER = os.path.join(os.getcwd(), 'uploads')  # Define where files will be stored
+    UPLOAD_FOLDER = os.path.join(os.getcwd(), 'uploads')
     ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}

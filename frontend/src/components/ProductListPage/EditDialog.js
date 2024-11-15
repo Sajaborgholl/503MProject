@@ -36,14 +36,16 @@ function EditDialog({ open, onClose, product, onSave }) {
   }, [product]);
 
   const handleChange = (e) => {
+    const { name, value } = e.target;
     setFormData({
       ...formData,
-      [e.target.name]: e.target.value,
+      [name]: name === 'price' ? parseFloat(value) : name === 'stock_quantity' ? parseInt(value, 10) : value,
     });
   };
 
   const handleSave = () => {
     onSave(formData);
+    window.location.reload();
   };
 
   return (

@@ -3,22 +3,14 @@ import React from 'react';
 import { ListItem, ListItemText, IconButton, Divider, Typography } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
-import { useNavigate } from 'react-router-dom';
 
-function ProductItem({ product, onDelete }) {
-  const navigate = useNavigate();
-
-  const handleEdit = () => {
-    navigate(`/product/${product.product_id}/edit`);
-  };
-
+function ProductItem({ product, onDelete, onEdit }) {
   return (
     <>
       <ListItem
-        button={true}  // Add this prop if you want ListItem to behave like a button
         secondaryAction={
           <>
-            <IconButton edge="end" aria-label="edit" onClick={handleEdit}>
+            <IconButton edge="end" aria-label="edit" onClick={onEdit}> {/* Calls onEdit when Edit button is clicked */}
               <EditIcon />
             </IconButton>
             <IconButton edge="end" aria-label="delete" onClick={onDelete} color="error">

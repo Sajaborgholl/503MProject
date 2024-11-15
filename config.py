@@ -10,11 +10,11 @@ class Config:
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
     JWT_SECRET_KEY = os.environ.get('JWT_SECRET_KEY') or 'your_jwt_secret_key'
-    JWT_TOKEN_LOCATION = ['cookies']
+    JWT_TOKEN_LOCATION = ['headers']
     JWT_COOKIE_SECURE = False  # Only send cookies over HTTPS in production
     JWT_ACCESS_COOKIE_PATH = '/'
     JWT_ACCESS_COOKIE_NAME = "access_token_cookie"
-    JWT_COOKIE_CSRF_PROTECT = True  # Protect cookies from CSRF attacks
+    JWT_COOKIE_CSRF_PROTECT = False  # Protect cookies from CSRF attacks
     JWT_ACCESS_TOKEN_EXPIRES = timedelta(hours=1)
 
     DEBUG = True  # Change to False in production

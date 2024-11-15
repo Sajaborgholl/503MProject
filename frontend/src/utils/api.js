@@ -42,11 +42,16 @@ export const updateProduct = async (productId, productData) => {
       method: 'PUT',
       body: JSON.stringify(productData),
     });
+  
     if (!response.ok) {
-      throw new Error('Failed to update product');
+      const errorData = await response.json();
+      console.error("Update product error response:", errorData);
+      throw new Error(errorData.message || 'Failed to update product');
     }
+  
     return response.json();
   };
+  
   
   // Add a new product
   export const addProduct = async (productData) => {

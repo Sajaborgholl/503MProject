@@ -12,7 +12,7 @@ html, body {
     align-items: center;
     justify-content: center;
     min-height: 100vh;
-    background-image: url('auth_login_wp1.webp'); /* Path to your image */
+    background-image: url('../../assets/auth_login_wp1.webp'); /* Path to your image */
     background-size: cover;                 /* Scale the image to cover the entire container */
     background-position: center;            /* Center the image */
     background-repeat: no-repeat;           /* Prevent tiling */

@@ -36,7 +36,7 @@ def login():
             expires_delta=timedelta(hours=1)  # Optional: Set specific expiration for the token
         )
         return jsonify(access_token=access_token), 200
-    else:
+    else:   
         return jsonify({"error": "Invalid credentials"}), 401
 
 

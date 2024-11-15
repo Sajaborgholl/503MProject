@@ -1,0 +1,11 @@
+/* In ProductList.css or relevant CSS file */
+.product-list-container {
+    overflow-y: auto;
+    max-height: 100vh; /* Adjust as needed */
+  }
+  
+
+  html, body {
+    overflow: auto; /* or remove this line if overflow is set to hidden */
+  }
+  

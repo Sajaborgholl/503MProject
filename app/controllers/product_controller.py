@@ -1,6 +1,7 @@
 # app/controllers/product_controller.py
 from flask import Blueprint, request, jsonify, current_app
 from db import get_db_connection
+import logging
 from app.auth.decorators import role_required
 from app.utils.file_upload import save_image_path_to_database, save_image_to_server, allowed_file
 from werkzeug.utils import secure_filename
@@ -18,28 +19,49 @@ product_bp = Blueprint('product', __name__)
 @role_required(["Product Manager", "Super Admin"])
 def add_product():
     data = request.get_json()
+    print("Received Data:", data)  # Log all incoming data
 
     # Use validators for input sanitization and validation
     name = sanitize_string(data.get('name'))
     description = sanitize_string(data.get('description'))
-    price = data.get('price')
+    
+    # Convert price and stock_quantity to appropriate types
+    try:
+        price = float(data.get('price'))
+    except (TypeError, ValueError):
+        return jsonify({"error": "Price must be a valid number."}), 400
+
+    try:
+        stock_quantity = int(data.get('stock_quantity'))
+    except (TypeError, ValueError):
+        return jsonify({"error": "Stock quantity must be a valid integer."}), 400
+
     size = sanitize_string(data.get('size'))
     color = sanitize_string(data.get('color'))
     material = sanitize_string(data.get('material'))
-    stock_quantity = data.get('stock_quantity')
     category_id = data.get('category_id')
     subcategory_id = data.get('subcategory_id')
     featured = data.get('featured', 0)
     warehouse_stock = data.get('warehouse_stock', [])
 
+    # Debug: Print the values and types of key fields after conversion
+    print("Name:", name, type(name))
+    print("Price:", price, type(price))
+    print("Stock Quantity:", stock_quantity, type(stock_quantity))
+
     # Validate required fields
     if not (is_valid_string(name) and is_valid_price(price) and is_valid_quantity(stock_quantity)):
+        print("Validation failed for name, price, or stock quantity.")  # Detailed debug output
         return jsonify({"error": "Invalid input for name, price, or stock quantity."}), 400
+
+    # Continue with the rest of the endpoint logic...
 
     # Validate category and subcategory IDs if provided
     if category_id and not is_valid_id(category_id):
+        logging.error("Invalid input for catgory id.")
         return jsonify({"error": "Invalid category ID."}), 400
     if subcategory_id and not is_valid_id(subcategory_id):
+        logging.error("Invalid input for subcategory.")
         return jsonify({"error": "Invalid subcategory ID."}), 400
 
     try:
@@ -273,3 +295,21 @@ def bulk_upload_products():
         return jsonify({"error": f"An error occurred during upload: {str(e)}"}), 500
     finally:
         conn.close()
+
+
+@product_bp.route('/categories', methods=['GET'])
+@role_required(["Product Manager", "Super Admin"])
+def get_categories_and_subcategories():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    # Fetch categories
+    cursor.execute("SELECT CategoryID, Name FROM Category")
+    categories = [{"id": row["CategoryID"], "name": row["Name"]} for row in cursor.fetchall()]
+
+    # Fetch subcategories
+    cursor.execute("SELECT SubCategoryID, Name, CategoryID FROM SubCategory")
+    subcategories = [{"id": row["SubCategoryID"], "name": row["Name"], "category_id": row["CategoryID"]} for row in cursor.fetchall()]
+
+    conn.close()
+    return jsonify({"categories": categories, "subcategories": subcategories}), 200

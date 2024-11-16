@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { AppBar, Toolbar, Typography, CssBaseline, Drawer, List, ListItem, ListItemText, Box, Grid } from '@mui/material';
+import { AppBar, Toolbar, Typography, CssBaseline, Drawer, List, ListItem, ListItemText, Box, Button, Grid } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import ProductPreview from '../components/ProductPreview/ProductPreview';
 import AddProductForm from '../components/AddProductForm/AddProductForm';
@@ -63,6 +63,13 @@ function Dashboard() {
     fetchProducts();
 }, []);
 
+
+const handleLogout = () => {
+  localStorage.removeItem('token');
+  localStorage.removeItem('admin_id');
+  navigate('/'); // Redirect to login page
+};
+
   const handleAddProduct = async (productData) => {
     try {
       const response = await fetch('http://127.0.0.1:5000/product/add', {
@@ -97,9 +104,10 @@ function Dashboard() {
       <CssBaseline />
       <AppBar position="fixed" sx={{ width: `calc(100% - ${drawerWidth}px)`, ml: `${drawerWidth}px` }}>
         <Toolbar>
-          <Typography variant="h6" noWrap component="div">
+          <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
             Mind & Body
           </Typography>
+          <Button color="inherit" onClick={handleLogout}>Logout</Button>
         </Toolbar>
       </AppBar>
 

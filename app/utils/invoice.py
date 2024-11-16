@@ -35,7 +35,11 @@ def generate_invoice(order_id):
         """, (order_id,))
         products = cursor.fetchall()
         
-        # Calculate Tax and Discounts
+        # Calculate product totals
+        product_totals = [product['Price'] * product['Quantity'] for product in products]
+        subtotal = sum(product_totals)  # Sum of all product totals
+        
+        # Membership discount logic
         membership_tier = order['MembershipTier']
         membership_discount = 0
 
@@ -44,9 +48,13 @@ def generate_invoice(order_id):
         elif membership_tier == 'Gold':
             membership_discount = 0.10  # 10% discount
 
-        discount_amount = order['TotalAmount'] * membership_discount
-        tax_amount = (order['TotalAmount'] - discount_amount + order['ShippingCost']) * order['TaxRate']
-        total_amount = order['TotalAmount'] - discount_amount + tax_amount + order['ShippingCost']
+        discount_amount = subtotal * membership_discount
+        
+        # Tax calculation
+        tax_amount = (subtotal - discount_amount + order['ShippingCost']) * order['TaxRate']
+        
+        # Final total amount
+        total_amount = subtotal + order['ShippingCost'] + tax_amount - discount_amount
         
         # Generate unique Invoice Number
         cursor.execute("SELECT COUNT(*) AS count FROM Invoice")
@@ -134,12 +142,6 @@ def generate_invoice(order_id):
         c.setFont("Helvetica-Bold", 14)
         c.drawString(400, y - 80, "Total Amount:")
         c.drawString(500, y - 80, f"${total_amount:.2f}")
-        
-        # Payment Status
-        c.setFont("Helvetica-Bold", 12)
-        c.drawString(50, y - 120, "Payment Status:")
-        c.setFont("Helvetica", 12)
-        c.drawString(200, y - 120, order['PaymentStatus'])
         
         # Footer
         c.setFont("Helvetica", 10)

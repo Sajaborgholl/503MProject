@@ -84,7 +84,7 @@ CREATE TABLE IF NOT EXISTS Warranty (
 CREATE TABLE IF NOT EXISTS "Order" (
     OrderID INTEGER PRIMARY KEY,
     OrderDate TEXT NOT NULL, -- Store dates in ISO format (YYYY-MM-DD)
-    Status TEXT NOT NULL CHECK(Status IN ('Pending', 'Shipped', 'Delivered')),
+    OrderStatus TEXT NOT NULL CHECK(Status IN ('Pending', 'Processing', 'Shipped', 'Delivered')),
     TotalAmount REAL NOT NULL,
     ShippingCost REAL DEFAULT 0,
     TaxRate REAL DEFAULT 0.10,
@@ -110,8 +110,11 @@ CREATE TABLE IF NOT EXISTS Return (
     OrderID INTEGER,
     ReturnDate TEXT NOT NULL, -- Store dates in ISO format (YYYY-MM-DD)
     Reason TEXT,
-    Status TEXT NOT NULL,
-    ReplacementOffered INTEGER DEFAULT 0; -- 0 for No, 1 for Yes
+    ReturnStatus TEXT NOT NULL CHECK (ReturnStatus IN ('Pending', 'Approved', 'Rejected', 'Processed')), -- Restrict to valid values
+    ReplacementOffered INTEGER DEFAULT 0, -- 0 for No, 1 for Yes
+    RefundAmount REAL DEFAULT 0, -- Amount refunded
+    RefundDate TEXT, -- Date the refund was processed
+    RAction TEXT CHECK (RAction IN ('Refund', 'Replace')) DEFAULT 'Refund', -- Restrict Action to Refund or Replace
     FOREIGN KEY (OrderID) REFERENCES "Order"(OrderID)
 );
 

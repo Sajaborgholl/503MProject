@@ -2,49 +2,88 @@
 
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
-import { Typography, Box, Button, Paper, AppBar, Toolbar, Drawer, List, ListItem, ListItemText } from '@mui/material';
+import { Typography, Grid, Box, Button, Paper, AppBar, Toolbar, Drawer, List, ListItem, ListItemText } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
+import OrderPreview from '../components/OrderPreview/OrderPreview';
+import ReturnPreview from '../components/ReturnPreview/ReturnPreview';
 
 const drawerWidth = 240;
 
 function OrderDashboard() {
   const navigate = useNavigate();
   const [orders, setOrders] = useState([]);
+  const [error, setError] = useState(null);
+  const [roles, setRoles] = useState([]); // Store admin's roles
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  const [returns, setReturns] = useState([]);
 
   useEffect(() => {
-    fetchOrders();
-  }, []);
+    const adminId = localStorage.getItem('admin_id');
+    console.log("Admin ID:", adminId); // Debug: ensure adminId is set
+    
+    const fetchAdminRoles = async (id) => {
+        try {
+            const response = await fetch(`http://127.0.0.1:5000/admin/${id}/roles`, {
+                headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+            });
+            console.log("Authorization Token:", localStorage.getItem('token'));
+            if (!response.ok) throw new Error('Failed to fetch admin roles');
+            const data = await response.json();
+            console.log("Fetched Roles Data:", data);
+            setRoles(data.roles);
+            setIsSuperAdmin(data.is_super_admin);
+        } catch (err) {
+            console.error("Error fetching admin roles:", err);
+            setError(err.message);
+        }
+    };
 
-  const fetchOrders = async () => {
-    try {
-      // Replace 'http://localhost:5000' with your backend URL
-      const response = await axios.get('http://localhost:5000/orders/all', {
-        headers: {
-          // Include auth token if required
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-        },
-      });
-      setOrders(response.data);
-    } catch (error) {
-      console.error('Error fetching orders:', error);
+    const fetchOrders = async () => {
+        try {
+          const response = await axios.get('/orders/all', { 
+            headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+          });
+          setOrders(response.data);
+        } catch (error) {
+          console.error('Error fetching orders:', error);
+        }
+    };      
+
+    const fetchReturns = async () => {
+        try {
+            const response = await axios.get('/orders/refunds', {
+                headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+            });
+            setReturns(response.data);
+        } catch (error) {
+            console.error('Error fetching returns:', error);
+        }
+    };
+    
+    if (adminId) {
+        fetchAdminRoles(adminId);
+    } else {
+        console.error("No admin ID found in localStorage.");
     }
-  };
+    fetchOrders();
+    fetchReturns();
+}, []);
 
-  const handleViewOrder = (orderId) => {
+const handleViewOrder = (orderId) => {
     navigate(`/orders/${orderId}`);
-  };
+};
 
-  const handleAddOrder = () => {
+const handleAddOrder = () => {
     // Placeholder function for adding a new order
     console.log('Add a new order');
     // You can navigate to an order creation page or open a dialog
-  };
+};
 
-  const handleLogout = () => {
+const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('admin_id');
     navigate('/'); // Redirect to login page
-  };
+};
 
   return (
     <Box sx={{ display: 'flex' }}>
@@ -90,32 +129,14 @@ function OrderDashboard() {
         </Typography>
 
         {/* Orders List */}
-        <Paper elevation={3} sx={{ padding: 2, marginTop: 2 }}>
-          <Typography variant="h6">Recent Orders</Typography>
-          <ul>
-            {orders.map((order) => (
-              <li key={order.OrderID}>
-                Order #{order.OrderID} - Status: {order.Status}{' '}
-                <Button
-                  variant="outlined"
-                  size="small"
-                  onClick={() => handleViewOrder(order.OrderID)}
-                  sx={{ ml: 1 }}
-                >
-                  View
-                </Button>
-              </li>
-            ))}
-          </ul>
-          <Button
-            variant="contained"
-            color="primary"
-            onClick={handleAddOrder}
-            sx={{ mt: 2 }}
-          >
-            Add New Order
-          </Button>
-        </Paper>
+        <Grid container spacing={2}>
+            <Grid item xs={12} md={6}>
+                <OrderPreview orders={orders} />
+            </Grid>
+            <Grid item xs={12} md={6}>
+                <ReturnPreview returns={returns} />
+            </Grid>
+        </Grid>
       </Box>
     </Box>
   );

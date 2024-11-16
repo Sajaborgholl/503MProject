@@ -5,8 +5,6 @@ import { AppBar, Toolbar, Typography, CssBaseline, Drawer, List, ListItem, ListI
 import { useNavigate } from 'react-router-dom';
 import ProductPreview from '../components/ProductPreview/ProductPreview';
 import AddProductForm from '../components/AddProductForm/AddProductForm';
-import OrderDashboard from './OrderDashboard';
-import InventoryDashboard from './InventoryDashboard';
 
 const drawerWidth = 240;
 

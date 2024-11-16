@@ -71,7 +71,7 @@ def create_order():
 
     # Insert order into the Order table
     cursor.execute(
-        "INSERT INTO 'Order' (OrderDate, Status, TotalAmount, UserID) VALUES (?, 'Pending', ?, ?)",
+        "INSERT INTO 'Order' (OrderDate, OrderStatus, TotalAmount, UserID) VALUES (?, 'Pending', ?, ?)",
         (order_date, total_amount, user_id)
     )
     order_id = cursor.lastrowid
@@ -88,6 +88,7 @@ def create_order():
     conn.close()
 
     return jsonify({"message": "Order created successfully", "order_id": order_id}), 201
+
 # Route to view all orders
 @order_bp.route('/all', methods=['GET'])
 @role_required(["Order Manager", "Super Admin"])
@@ -105,51 +106,83 @@ def get_all_orders():
 def get_order(order_id):
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT * FROM 'Order' WHERE OrderID = ?", (order_id,))
+
+    # Fetch the order details
+    cursor.execute("""
+        SELECT o.OrderID, o.OrderDate, o.OrderStatus, o.TotalAmount, 
+               o.ShippingCost, o.TaxRate, o.PaymentStatus, c.name AS CustomerName
+        FROM "Order" o
+        LEFT JOIN Customer c ON o.UserID = c.UserID
+        WHERE o.OrderID = ?
+    """, (order_id,))
     order = cursor.fetchone()
     
     if not order:
         conn.close()
         return jsonify({"error": "Order not found"}), 404
 
-    # Get products in this order
-    cursor.execute("SELECT * FROM Order_Product WHERE OrderID = ?", (order_id,))
+    # Fetch the products in this order with names
+    cursor.execute("""
+        SELECT p.Name AS ProductName, op.Quantity
+        FROM Order_Product op
+        JOIN Product p ON op.ProductID = p.ProductID
+        WHERE op.OrderID = ?
+    """, (order_id,))
     products = cursor.fetchall()
     conn.close()
 
-    return jsonify({"order": dict(order), "products": [dict(product) for product in products]}), 200
+    return jsonify({
+        "order": dict(order),
+        "products": [dict(product) for product in products]
+    }), 200
 
 # Route to update the status of an order
 @order_bp.route('/<int:order_id>/update-status', methods=['PUT'])
 @role_required(["Order Manager", "Super Admin"])
 def update_order_status(order_id):
-    data = request.get_json()
-    new_status = data.get("status")
+    try:
+        data = request.get_json()
+        current_app.logger.info(f"Request data: {data}")
+        
+        new_status = data.get("status")
+        if new_status not in ['Pending', 'Processing', 'Shipped', 'Delivered']:
+            return jsonify({"error": "Invalid status"}), 400
 
-    if new_status not in ['Pending', 'Processing', 'Shipped', 'Delivered']:
-        return jsonify({"error": "Invalid status"}), 400
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Log before executing SQL
+        current_app.logger.info(f"Updating status to '{new_status}' for OrderID {order_id}")
+        
+        # Use double quotes for table name to avoid conflicts
+        cursor.execute('UPDATE "Order" SET OrderStatus = ? WHERE OrderID = ?', (new_status, order_id))
+        conn.commit()
 
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("UPDATE 'Order' SET Status = ? WHERE OrderID = ?", (new_status, order_id))
-    conn.commit()
-    conn.close()
+        return jsonify({"message": f"Order {order_id} status updated to {new_status}"}), 200
 
-    return jsonify({"message": f"Order {order_id} status updated to {new_status}"}), 200
+    except Exception as e:
+        current_app.logger.error(f"Error updating order {order_id} status: {e}")
+        return jsonify({"error": "Internal server error"}), 500
+    finally:
+        conn.close()
 
 @order_bp.route('/<int:order_id>/invoice', methods=['GET'])
 @role_required(["Order Manager", "Super Admin"])
 def get_invoice(order_id):
-    # Fetch order and related products
-    # Generate invoice using a utility function
     try:
-        # Fetch order and related products within generate_invoice
-        invoice = generate_invoice(order_id)
-        if not invoice:
+        current_app.logger.info(f"Received request to generate invoice for Order ID: {order_id}")
+        
+        # Attempt to generate the invoice
+        invoice_path = generate_invoice(order_id)
+        
+        if not invoice_path:
+            current_app.logger.error(f"No invoice generated for Order ID: {order_id}. Verify order existence.")
             return jsonify({"error": "Invoice generation failed or order not found"}), 404
-        return send_file(invoice, as_attachment=True)
+        
+        current_app.logger.info(f"Invoice successfully generated for Order ID: {order_id}")
+        return send_file(invoice_path, as_attachment=True)
     except Exception as e:
-        current_app.logger.error(f"Error generating invoice for order {order_id}: {e}")
+        current_app.logger.error(f"Error generating invoice for Order ID {order_id}: {e}")
         return jsonify({"error": "Internal server error"}), 500
 
 # Route to create a return request
@@ -197,41 +230,25 @@ def get_all_returns():
 def update_return_status(return_id):
     data = request.get_json()
     new_status = data.get("status")
-    action = data.get("action")
 
     if new_status not in ['Pending', 'Approved', 'Rejected', 'Processed']:
         return jsonify({"error": "Invalid status"}), 400
-    if new_status == 'Approved' and action not in ['Refund', 'Replace']:
-        return jsonify({"error": "Action must be 'Refund' or 'Replace' when approving"}), 400
-    
+
     conn = get_db_connection()
     cursor = conn.cursor()
 
-    # Update the status of the return
-    cursor.execute("UPDATE 'Return' SET Status = ? WHERE ReturnID = ?", (new_status, return_id))
+    cursor.execute("SELECT * FROM 'Return' WHERE ReturnID = ?", (return_id,))
+    return_request = cursor.fetchone()
 
-    # If the return is approved, log changes in the Inventory_Log and update stock
-    if new_status == 'Approved':
-        if action == 'Refund':
-            # Process refund
-            response = process_refund(return_id)
-            if response.status_code != 200:
-                # Handle refund failure
-                conn.close()
-                return jsonify({"error": "Failed to process refund"}), 500
-        elif action == 'Replace':
-            # Offer replacement
-            response = offer_replacement(return_id)
-            if response.status_code != 201:
-                # Handle replacement failure
-                conn.close()
-                return jsonify({"error": "Failed to process replacement"}), 500
+    if not return_request:
+        conn.close()
+        return jsonify({"error": "Return not found"}), 404
 
+    cursor.execute("UPDATE 'Return' SET ReturnStatus = ? WHERE ReturnID = ?", (new_status, return_id))
     conn.commit()
     conn.close()
 
-    return jsonify({"message": f"Return {return_id} status updated to {new_status} and inventory updated if applicable"}), 200
-
+    return jsonify({"message": f"Return {return_id} status updated to {new_status}"}), 200
 
 
 # Route for an admin to approve a return
@@ -239,7 +256,7 @@ def update_return_status(return_id):
 @role_required(["Order Manager", "Super Admin"])
 def approve_return(return_id):
     data = request.get_json()
-    new_status = data.get("status")
+    new_status = data.get("returnstatus")
 
     if new_status not in ['Approved', 'Rejected']:
         return jsonify({"error": "Invalid status"}), 400
@@ -248,7 +265,7 @@ def approve_return(return_id):
     cursor = conn.cursor()
 
     # Update the return status
-    cursor.execute("UPDATE Return SET Status = ? WHERE ReturnID = ?", (new_status, return_id))
+    cursor.execute("UPDATE Return SET ReturnStatus = ? WHERE ReturnID = ?", (new_status, return_id))
     conn.commit()
 
     # If the return is approved, log the change in Inventory_Log and update stock
@@ -289,61 +306,29 @@ def approve_return(return_id):
 @order_bp.route('/returns/<int:return_id>/refund', methods=['POST'])
 @role_required(["Order Manager", "Super Admin"])
 def process_refund(return_id):
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    
-    # Fetch the return request
-    cursor.execute("SELECT * FROM 'Return' WHERE ReturnID = ?", (return_id,))
-    return_request = cursor.fetchone()
-    if not return_request:
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Fetch the return request
+        cursor.execute("SELECT * FROM 'Return' WHERE ReturnID = ?", (return_id,))
+        return_request = cursor.fetchone()
+        if not return_request:
+            return jsonify({"error": "Return request not found"}), 404
+
+        # Check if the return has been approved
+        if return_request['ReturnStatus'] != 'Approved':
+            return jsonify({"error": "Return request is not approved"}), 400
+        
+        # Process the refund logic here
+        # Add more debug logs if necessary
+        
+        conn.commit()
         conn.close()
-        return jsonify({"error": "Return request not found"}), 404
-    
-    # Check if the return has been approved
-    if return_request['Status'] != 'Approved':
-        conn.close()
-        return jsonify({"error": "Return request is not approved"}), 400
-    
-    # Fetch the associated order
-    order_id = return_request['OrderID']
-    cursor.execute("SELECT * FROM 'Order' WHERE OrderID = ?", (order_id,))
-    order = cursor.fetchone()
-    if not order:
-        conn.close()
-        return jsonify({"error": "Order not found"}), 404
-    
-    # Fetch the payment associated with the order
-    cursor.execute("SELECT * FROM Payment WHERE OrderID = ?", (order_id,))
-    payment = cursor.fetchone()
-    if not payment:
-        conn.close()
-        return jsonify({"error": "Payment not found for this order"}), 404
-    
-    # Check if the payment has already been refunded
-    if payment['PaymentStatus'] == 'Refunded':
-        conn.close()
-        return jsonify({"message": "Payment has already been refunded"}), 400
-    
-    # Process the refund (This is where you would integrate with a payment gateway)
-    refund_amount = order['TotalAmount']
-    refund_date = datetime.utcnow().strftime('%Y-%m-%d')
-    
-    # Update the payment record
-    cursor.execute("""
-        UPDATE Payment SET PaymentStatus = 'Refunded', RefundAmount = ?, RefundDate = ?
-        WHERE PaymentID = ?
-    """, (refund_amount, refund_date, payment['PaymentID']))
-    
-    # Update the order status
-    cursor.execute("""
-        UPDATE 'Order' SET PaymentStatus = 'Refunded', Status = 'Refunded'
-        WHERE OrderID = ?
-    """, (order_id,))
-    
-    conn.commit()
-    conn.close()
-    
-    return jsonify({"message": f"Refund of ${refund_amount:.2f} processed successfully for Order ID {order_id}"}), 200
+        return jsonify({"message": "Refund processed successfully"}), 200
+    except Exception as e:
+        current_app.logger.error(f"Error processing refund: {e}")
+        return jsonify({"error": "Internal server error"}), 500
 
 
 @order_bp.route('/returns/<int:return_id>/replace', methods=['POST'])
@@ -352,70 +337,162 @@ def offer_replacement(return_id):
     conn = get_db_connection()
     cursor = conn.cursor()
     
-    # Fetch the return request
+    try:
+        # Fetch the return request
+        current_app.logger.info(f"Fetching return request with ReturnID: {return_id}")
+        cursor.execute("SELECT * FROM 'Return' WHERE ReturnID = ?", (return_id,))
+        return_request = cursor.fetchone()
+        if not return_request:
+            return jsonify({"error": "Return request not found"}), 404
+
+        # Check if the return has been approved
+        if return_request['ReturnStatus'] != 'Approved':
+            return jsonify({"error": "Return request is not approved"}), 400
+
+        # Check if a replacement has already been offered
+        if return_request['ReplacementOffered']:
+            return jsonify({"message": "Replacement has already been offered for this return"}), 400
+
+        # Fetch the original order
+        order_id = return_request['OrderID']
+        current_app.logger.info(f"Fetching original order with OrderID: {order_id}")
+        cursor.execute("SELECT * FROM 'Order' WHERE OrderID = ?", (order_id,))
+        original_order = cursor.fetchone()
+        if not original_order:
+            return jsonify({"error": "Original order not found"}), 404
+
+        # Create a new order for the replacement
+        order_date = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
+        current_app.logger.info(f"Creating a replacement order for UserID: {original_order['UserID']}")
+        cursor.execute("""
+            INSERT INTO 'Order' (OrderDate, OrderStatus, TotalAmount, UserID, PaymentStatus)
+            VALUES (?, 'Processing', ?, ?, 'Unpaid')
+        """, (order_date, original_order['TotalAmount'], original_order['UserID']))
+        new_order_id = cursor.lastrowid
+        current_app.logger.info(f"Replacement order created with OrderID: {new_order_id}")
+
+        # Fetch products from the original order
+        current_app.logger.info(f"Fetching products from OrderID: {order_id}")
+        cursor.execute("SELECT ProductID, Quantity FROM Order_Product WHERE OrderID = ?", (order_id,))
+        order_products = cursor.fetchall()
+        current_app.logger.info(f"Products to be added to Replacement Order: {order_products}")
+
+        # Insert products into the new order
+        unique_products = {item['ProductID']: item for item in order_products}.values()
+        for item in order_products:
+            # Check if the combination already exists
+            cursor.execute("""
+                SELECT COUNT(*) FROM Order_Product WHERE OrderID = ? AND ProductID = ?
+            """, (new_order_id, item['ProductID']))
+            exists = cursor.fetchone()[0]
+
+            if exists:
+                current_app.logger.info(f"ProductID: {item['ProductID']} already exists in OrderID: {new_order_id}. Skipping.")
+            else:
+                # Insert the product if it doesn't already exist
+                cursor.execute("""
+                    INSERT INTO Order_Product (OrderID, ProductID, Quantity)
+                    VALUES (?, ?, ?)
+                """, (new_order_id, item['ProductID'], item['Quantity']))
+                current_app.logger.info(f"Added ProductID: {item['ProductID']} to Replacement OrderID: {new_order_id}.")
+
+        # Update inventory (deduct stock)
+        for item in order_products:
+            cursor.execute("""
+                UPDATE Product SET StockQuantity = StockQuantity - ? WHERE ProductID = ?
+            """, (item['Quantity'], item['ProductID']))
+            
+            # Log inventory change
+            cursor.execute("""
+                INSERT INTO Inventory_Log (ProductID, ChangeAmount, ChangeType, Timestamp)
+                VALUES (?, ?, 'Replacement Order', ?)
+            """, (item['ProductID'], -item['Quantity'], datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')))
+
+        # Update the return request to indicate a replacement has been offered
+        cursor.execute("""
+            UPDATE 'Return' SET ReplacementOffered = 1 WHERE ReturnID = ?
+        """, (return_id,))
+
+        conn.commit()
+        current_app.logger.info(f"Replacement order {new_order_id} created successfully")
+        return jsonify({"message": f"Replacement order {new_order_id} created successfully"}), 201
+
+    
+    except Exception as e:
+        current_app.logger.error(f"Error in offer_replacement endpoint: {e}")
+        conn.rollback()
+        return jsonify({"error": "Internal server error"}), 500
+    
+    finally:
+        conn.close()
+
+# Route to fetch all refund requests
+@order_bp.route('/refunds', methods=['GET'])
+@role_required(["Order Manager", "Super Admin"])
+def get_all_refunds():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT r.ReturnID, r.OrderID, r.Reason, r.ReturnDate, r.ReturnStatus, r.RAction, 
+               p.PaymentStatus, p.RefundAmount, p.RefundDate
+        FROM "Return" r
+        LEFT JOIN Payment p ON r.OrderID = p.OrderID
+    """)
+    refunds = cursor.fetchall()
+    conn.close()
+    return jsonify([dict(refund) for refund in refunds]), 200
+
+@order_bp.route('/returns/<int:return_id>', methods=['GET'])
+@role_required(["Order Manager", "Super Admin"])
+def get_return_details(return_id):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    # Fetch the return details
     cursor.execute("SELECT * FROM 'Return' WHERE ReturnID = ?", (return_id,))
     return_request = cursor.fetchone()
     if not return_request:
         conn.close()
         return jsonify({"error": "Return request not found"}), 404
     
-    # Check if the return has been approved
-    if return_request['Status'] != 'Approved':
-        conn.close()
-        return jsonify({"error": "Return request is not approved"}), 400
-    
-    # Check if a replacement has already been offered
-    if return_request['ReplacementOffered']:
-        conn.close()
-        return jsonify({"message": "Replacement has already been offered for this return"}), 400
-    
-    # Fetch the original order
-    order_id = return_request['OrderID']
-    cursor.execute("SELECT * FROM 'Order' WHERE OrderID = ?", (order_id,))
-    original_order = cursor.fetchone()
-    if not original_order:
-        conn.close()
-        return jsonify({"error": "Original order not found"}), 404
-    
-    # Fetch products from the original order
-    cursor.execute("""
-        SELECT ProductID, Quantity FROM Order_Product WHERE OrderID = ?
-    """, (order_id,))
-    order_products = cursor.fetchall()
-    
-    # Create a new order for the replacement
-    order_date = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
-    cursor.execute("""
-        INSERT INTO 'Order' (OrderDate, Status, TotalAmount, UserID, PaymentStatus)
-        VALUES (?, 'Processing', ?, ?, 'Unpaid')
-    """, (order_date, original_order['TotalAmount'], original_order['UserID']))
-    new_order_id = cursor.lastrowid
-    
-    # Insert products into the new order
-    for item in order_products:
-        cursor.execute("""
-            INSERT INTO Order_Product (OrderID, ProductID, Quantity)
-            VALUES (?, ?, ?)
-        """, (new_order_id, item['ProductID'], item['Quantity']))
-    
-    # Update inventory (deduct stock)
-    for item in order_products:
-        cursor.execute("""
-            UPDATE Product SET StockQuantity = StockQuantity - ? WHERE ProductID = ?
-        """, (item['Quantity'], item['ProductID']))
-        
-        # Log inventory change
-        cursor.execute("""
-            INSERT INTO Inventory_Log (ProductID, ChangeAmount, ChangeType, Timestamp)
-            VALUES (?, ?, 'Replacement Order', ?)
-        """, (item['ProductID'], -item['Quantity'], datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')))
-    
-    # Update the return request to indicate a replacement has been offered
-    cursor.execute("""
-        UPDATE 'Return' SET ReplacementOffered = 1 WHERE ReturnID = ?
-    """, (return_id,))
-    
-    conn.commit()
     conn.close()
-    
-    return jsonify({"message": f"Replacement order {new_order_id} created successfully"}), 201
+    return jsonify(dict(return_request)), 200
+
+# Route to process a refund manually
+@order_bp.route('/refunds/<int:return_id>/process', methods=['POST'])
+@role_required(["Order Manager", "Super Admin"])
+def process_manual_refund(return_id):
+    try:
+        data = request.get_json()
+        refund_amount = data.get("refund_amount", 0)
+        refund_date = datetime.utcnow().strftime('%Y-%m-%d')
+
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        # Check if the return exists
+        cursor.execute("SELECT * FROM 'Return' WHERE ReturnID = ?", (return_id,))
+        return_request = cursor.fetchone()
+        if not return_request:
+            conn.close()
+            return jsonify({"error": "Return request not found"}), 404
+
+        # Update the payment and mark refund as completed
+        cursor.execute("""
+            UPDATE Payment 
+            SET PaymentStatus = 'Refunded', RefundAmount = ?, RefundDate = ?
+            WHERE OrderID = ?
+        """, (refund_amount, refund_date, return_request['OrderID']))
+
+        # Update the return request status
+        cursor.execute("""
+            UPDATE 'Return' SET Status = 'Processed' WHERE ReturnID = ?
+        """, (return_id,))
+
+        conn.commit()
+        conn.close()
+
+        return jsonify({"message": f"Refund of ${refund_amount:.2f} processed successfully for Return ID {return_id}"}), 200
+    except Exception as e:
+        current_app.logger.error(f"Error processing refund for Return ID {return_id}: {e}")
+        return jsonify({"error": "Internal server error"}), 500

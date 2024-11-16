@@ -1,12 +1,16 @@
+// src/pages/ProductDashboard.js
+
 import React, { useEffect, useState } from 'react';
 import { AppBar, Toolbar, Typography, CssBaseline, Drawer, List, ListItem, ListItemText, Box, Button, Grid } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import ProductPreview from '../components/ProductPreview/ProductPreview';
 import AddProductForm from '../components/AddProductForm/AddProductForm';
+import OrderDashboard from './OrderDashboard';
+import InventoryDashboard from './InventoryDashboard';
 
 const drawerWidth = 240;
 
-function Dashboard() {
+function ProductDashboard() {
   const navigate = useNavigate();
   const [products, setProducts] = useState([]);
   const [error, setError] = useState(null);
@@ -15,9 +19,9 @@ function Dashboard() {
 
   // Define navigation items with required roles
   const navigationItems = [
-    { text: 'Product Manager Dashboard', path: '/products', roles: ['Product Manager'] },
-    { text: 'Inventory Manager Dashboard', path: '/inventory', roles: ['Inventory Manager'] },
-    { text: 'Orders Manager Dashboard' , path: '/orders', roles: ['Order Manager'] },
+    { text: 'Product Dashboard', path: '/dashboard', roles: ['Product Manager'] },
+    { text: 'Inventory Dashboard', path: '/inventory', roles: ['Inventory Manager'] },
+    { text: 'Orders Dashboard' , path: '/orders', roles: ['Order Manager'] },
   ];
 
   useEffect(() => {
@@ -146,4 +150,4 @@ const handleLogout = () => {
   );
 }
 
-export default Dashboard;
+export default ProductDashboard;

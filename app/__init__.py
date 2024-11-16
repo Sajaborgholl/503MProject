@@ -23,7 +23,8 @@ def create_app():
     app.config.from_object('config.Config')
 
     # Initialize CORS to allow cross-origin requests
-    CORS(app)  # This will allow all origins by default
+    CORS(app, origins=["http://localhost:3000"], supports_credentials=True)
+  # This will allow all origins by default
 
     # Initialize database with Flask app
     db.init_app(app)

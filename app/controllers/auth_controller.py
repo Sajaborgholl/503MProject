@@ -18,26 +18,24 @@ def login():
     data = request.get_json()
     email = data.get("email")
     password = data.get("password")
-    
-    if not email or not password:
-        return jsonify({"error": "Email and password are required"}), 400
-    if not re.match(EMAIL_REGEX, email):
-        return jsonify({"error": "Invalid email format"}), 400
 
+    # Database connection and user authentication logic
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("SELECT * FROM Administrator WHERE Email = ?", (email,))
     user = cursor.fetchone()
 
     if user and check_password_hash(user["Password"], password):
-        # Create a JWT access token with an expiration
         access_token = create_access_token(
-            identity={"user_id": user["UserID"], "role": user["Role"], "is_super_admin": user["is_super_admin"]},
-            expires_delta=timedelta(hours=1)  # Optional: Set specific expiration for the token
+            identity={"user_id": user["UserID"], "role": user["Role"], "is_super_admin": user["is_super_admin"]}
         )
-        return jsonify(access_token=access_token), 200
-    else:   
-        return jsonify({"error": "Invalid credentials"}), 401
+        return jsonify({
+            "access_token": access_token,
+            "user_id": user["UserID"]  # Ensure this matches the actual ID field in your database
+        })
+
+    return jsonify({"error": "Invalid credentials"}), 401
+
 
 
 @auth_bp.route('/logout', methods=['POST'])

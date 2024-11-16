@@ -1,6 +1,5 @@
-// src/components/Dashboard.js
 import React, { useEffect, useState } from 'react';
-import { AppBar, Toolbar, Typography, CssBaseline, Drawer, List, ListItem, ListItemText, Box, Grid, Paper } from '@mui/material';
+import { AppBar, Toolbar, Typography, CssBaseline, Drawer, List, ListItem, ListItemText, Box, Grid } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import ProductPreview from '../components/ProductPreview/ProductPreview';
 import AddProductForm from '../components/AddProductForm/AddProductForm';
@@ -11,31 +10,58 @@ function Dashboard() {
   const navigate = useNavigate();
   const [products, setProducts] = useState([]);
   const [error, setError] = useState(null);
+  const [roles, setRoles] = useState([]); // Store admin's roles
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false); // Store super admin status
 
+  // Define navigation items with required roles
   const navigationItems = [
-    { text: 'Products', path: '/products' },
-    { text: 'Inventory', path: '/inventory' },
-    { text: 'Orders', path: '/orders' },
-    { text: 'Admin Management', path: '/admin-management' },
+    { text: 'Product Manager Dashboard', path: '/products', roles: ['Product Manager'] },
+    { text: 'Inventory Manager Dashboard', path: '/inventory', roles: ['Inventory Manager'] },
+    { text: 'Orders Manager Dashboard' , path: '/orders', roles: ['Order Manager'] },
   ];
 
   useEffect(() => {
-    const fetchProducts = async () => {
-      try {
-        const response = await fetch('http://127.0.0.1:5000/product/all', {
-          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
-        });
-        if (!response.ok) {
-          throw new Error('Failed to fetch products');
+    const adminId = localStorage.getItem('admin_id');
+    console.log("Admin ID:", adminId); // Debug: ensure adminId is set
+    
+    const fetchAdminRoles = async (id) => {
+        try {
+            const response = await fetch(`http://127.0.0.1:5000/admin/${id}/roles`, {
+                headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+            });
+            console.log("Authorization Token:", localStorage.getItem('token'));
+            if (!response.ok) throw new Error('Failed to fetch admin roles');
+            const data = await response.json();
+            console.log("Fetched Roles Data:", data);
+            setRoles(data.roles);
+            setIsSuperAdmin(data.is_super_admin);
+        } catch (err) {
+            console.error("Error fetching admin roles:", err);
+            setError(err.message);
         }
-        const data = await response.json();
-        setProducts(data.products);
-      } catch (err) {
-        setError(err.message);
-      }
     };
+
+    const fetchProducts = async () => {
+        try {
+            const response = await fetch('http://127.0.0.1:5000/product/all', {
+                headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+            });
+            if (!response.ok) throw new Error('Failed to fetch products');
+            const data = await response.json();
+            setProducts(data.products);
+        } catch (err) {
+            setError(err.message);
+        }
+    };
+
+    if (adminId) {
+        fetchAdminRoles(adminId);
+    } else {
+        console.error("No admin ID found in localStorage.");
+    }
+
     fetchProducts();
-  }, []);
+}, []);
 
   const handleAddProduct = async (productData) => {
     try {
@@ -58,6 +84,14 @@ function Dashboard() {
     }
   };
 
+  // Determine which navigation items to show based on roles or super admin status
+  const filteredNavigationItems = isSuperAdmin
+    ? navigationItems // Super admin sees all items
+    : navigationItems.filter(item => item.roles.some(role => roles.includes(role)));
+
+  // Additional Debug Log to Confirm Filtered Navigation Items
+  console.log("Filtered Navigation Items:", filteredNavigationItems); 
+
   return (
     <Box sx={{ display: 'flex' }}>
       <CssBaseline />
@@ -79,11 +113,10 @@ function Dashboard() {
       >
         <Toolbar />
         <List>
-          {navigationItems.map((item) => (
+          {filteredNavigationItems.map((item) => (
             <ListItem button key={item.text} onClick={() => navigate(item.path)}>
-            <ListItemText primary={item.text} />
-          </ListItem>
-          
+              <ListItemText primary={item.text} />
+            </ListItem>
           ))}
         </List>
       </Drawer>
@@ -93,19 +126,11 @@ function Dashboard() {
         {error && <Typography color="error">{error}</Typography>}
 
         <Grid container spacing={2}>
-          {/* Product Preview Card */}
           <Grid item xs={12} md={6}>
-            
-              
-              <ProductPreview products={products} />
-      
+            <ProductPreview products={products} />
           </Grid>
-
-          {/* Add Product Form Card */}
           <Grid item xs={12} md={6}>
-            
-              <AddProductForm onSubmit={handleAddProduct} />
-            
+            <AddProductForm onSubmit={handleAddProduct} />
           </Grid>
         </Grid>
       </Box>

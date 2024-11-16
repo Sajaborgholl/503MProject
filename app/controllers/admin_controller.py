@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify
 from werkzeug.security import generate_password_hash
 from db import get_db_connection
+from flask_jwt_extended import jwt_required
 from app.auth.decorators import super_admin_required
 
 admin_bp = Blueprint('admin', __name__)
@@ -146,6 +147,42 @@ def list_admins():
         ]
 
         return jsonify({"admins": admin_list}), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        conn.close()
+
+
+
+
+@admin_bp.route('/<int:admin_id>/roles', methods=['GET'])
+@jwt_required()  # Use jwt_required to enforce authentication
+def get_admin_roles(admin_id):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        # Fetch admin and check if they are a super admin
+        cursor.execute("SELECT is_super_admin FROM Administrator WHERE UserID = ?", (admin_id,))
+        admin = cursor.fetchone()
+        if not admin:
+            return jsonify({"error": "Admin not found"}), 404
+
+        if admin["is_super_admin"] == 1:
+            # If super admin, return all roles
+            cursor.execute("SELECT RoleName FROM Role")
+            roles = [role["RoleName"] for role in cursor.fetchall()]
+            return jsonify({"admin_id": admin_id, "roles": roles, "is_super_admin": True}), 200
+        else:
+            # Fetch assigned roles for a regular admin
+            cursor.execute("""
+                SELECT r.RoleName 
+                FROM Role r
+                JOIN Admin_Role ar ON r.RoleID = ar.RoleID
+                WHERE ar.AdminID = ?
+            """, (admin_id,))
+            roles = [role["RoleName"] for role in cursor.fetchall()]
+            return jsonify({"admin_id": admin_id, "roles": roles, "is_super_admin": False}), 200
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500

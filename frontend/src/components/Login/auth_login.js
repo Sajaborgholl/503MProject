@@ -23,9 +23,12 @@ function AuthLogin() {
       });
 
       const data = await response.json();
+      console.log("Login Response Data:", data); 
 
       if (response.ok) {
         localStorage.setItem('token', data.access_token);
+        localStorage.setItem('admin_id', data.user_id);
+        console.log('Token stored:', localStorage.getItem('token')); 
         setIsAuthenticated(true);
         navigate('/dashboard');
       } else {

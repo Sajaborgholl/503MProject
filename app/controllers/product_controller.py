@@ -247,54 +247,80 @@ def upload_product_image(product_id):
 @product_bp.route('/bulk-upload', methods=['POST'])
 @role_required(["Product Manager", "Super Admin"])
 def bulk_upload_products():
+    # Check if the file part exists in the request
     if 'file' not in request.files:
+        print("Error: No file part in the request")
         return jsonify({"error": "No file part in the request"}), 400
     
     file = request.files['file']
+    
+    # Check if the file is allowed
     if not allowed_file(file.filename):
+        print(f"Error: Invalid file type for file {file.filename}")
         return jsonify({"error": "Invalid file type, only CSV files are allowed"}), 400
 
     try:
+        # Attempt to decode and read the CSV file
+        print("Decoding and reading CSV file")
         stream = StringIO(file.stream.read().decode("UTF8"), newline=None)
         csv_reader = csv.DictReader(stream)
+        
+        # Initialize database connection
         conn = get_db_connection()
         cursor = conn.cursor()
 
+        # Iterate over rows in the CSV
         for row in csv_reader:
+            print(f"Processing row: {row}")  # Debugging: Print each row
             if 'Name' in row and 'Price' in row and 'StockQuantity' in row:
-                cursor.execute("""
-                    INSERT INTO Product 
-                    (Name, Description, Price, Size, Color, Material, StockQuantity, CategoryID, SubCategoryID)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """, (
-                    row['Name'],
-                    row.get('Description', ''),
-                    float(row['Price']),
-                    row.get('Size', ''),
-                    row.get('Color', ''),
-                    row.get('Material', ''),
-                    int(row['StockQuantity']),
-                    int(row.get('CategoryID', 0)),
-                    int(row.get('SubCategoryID', 0))
-                ))
-                product_id = cursor.lastrowid
-
-                # WarehouseStock is a field with warehouse-specific quantities in "WarehouseID:Quantity" format
-                warehouse_stock = row.get('WarehouseStock', '')
-                for stock_entry in warehouse_stock.split(';'):
-                    warehouse_id, quantity = map(int, stock_entry.split(':'))
+                try:
+                    # Insert product details
                     cursor.execute("""
-                        INSERT INTO Product_Warehouse (ProductID, WarehouseID, StockQuantity)
-                        VALUES (?, ?, ?)
-                    """, (product_id, warehouse_id, quantity))
+                        INSERT INTO Product 
+                        (Name, Description, Price, Size, Color, Material, StockQuantity, CategoryID, SubCategoryID)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """, (
+                        row['Name'],
+                        row.get('Description', ''),
+                        float(row['Price']),
+                        row.get('Size', ''),
+                        row.get('Color', ''),
+                        row.get('Material', ''),
+                        int(row['StockQuantity']),
+                        int(row.get('CategoryID', 0)),
+                        int(row.get('SubCategoryID', 0))
+                    ))
+                    product_id = cursor.lastrowid
+                    print(f"Inserted Product ID: {product_id}")  # Debugging: Print inserted Product ID
 
+                    # Process warehouse stock if available
+                    warehouse_stock = row.get('WarehouseStock', '')
+                    for stock_entry in warehouse_stock.split(';'):
+                        if stock_entry.strip():  # Ensure non-empty entries
+                            try:
+                                warehouse_id, quantity = map(int, stock_entry.split(':'))
+                                cursor.execute("""
+                                    INSERT INTO Product_Warehouse (ProductID, WarehouseID, StockQuantity)
+                                    VALUES (?, ?, ?)
+                                """, (product_id, warehouse_id, quantity))
+                                print(f"Inserted Warehouse stock for Product ID {product_id} with Warehouse ID {warehouse_id} and Quantity {quantity}")
+                            except ValueError as stock_error:
+                                print(f"Error parsing warehouse stock entry '{stock_entry}': {stock_error}")
+                except Exception as row_error:
+                    print(f"Error inserting row {row}: {row_error}")
+                    continue  # Skip to the next row if there's an error with this one
+
+        # Commit the transaction
         conn.commit()
+        print("Bulk upload completed successfully")
         return jsonify({"message": "Bulk upload completed successfully."}), 201
 
     except Exception as e:
+        print(f"General error during file processing: {e}")  # General error logging
         return jsonify({"error": f"An error occurred during upload: {str(e)}"}), 500
     finally:
         conn.close()
+
 
 
 @product_bp.route('/categories', methods=['GET'])

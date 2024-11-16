@@ -17,17 +17,21 @@ export const isValidPrice = (value) => {
     return !isNaN(price) && price > 0;
 };
 
-// Escape HTML characters in a string to prevent XSS
+// Sanitize string to remove risky characters and patterns
 export const sanitizeString = (value) => {
-    return value.replace(/&/g, "&amp;")
-                .replace(/</g, "&lt;")
-                .replace(/>/g, "&gt;")
-                .replace(/"/g, "&quot;")
-                .replace(/'/g, "&#039;");
-};
+    if (typeof value !== 'string') return '';
+    
+    // Remove specific characters commonly used in scripting
+    const sanitizedValue = value
+      .replace(/[`~!@#$%^*()_|+\-=?;:'",.<>{}[\]\\\/]/gi, '') // Remove special characters
+      .replace(/(script|javascript|onerror|onload|alert|eval|href|src)/gi, ''); // Remove keywords
+    
+    // Trim any extra whitespace
+    return sanitizedValue.trim();
+  };
 
 // Example validation for product data
-export const validateProductData = (data) => {
+export const validateProductData = (data) => {  
     const { name, description, price, stock_quantity, category_id, subcategory_id } = data;
     return (
         isValidString(name) &&

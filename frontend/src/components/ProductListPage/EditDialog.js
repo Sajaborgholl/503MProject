@@ -8,6 +8,7 @@ import {
   Button,
   TextField,
 } from '@mui/material';
+import { sanitizeString } from '../../utils/validators'; // Import the sanitize function
 
 function EditDialog({ open, onClose, product, onSave }) {
   const [formData, setFormData] = useState({
@@ -37,9 +38,13 @@ function EditDialog({ open, onClose, product, onSave }) {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
+    const sanitizedValue = name === 'price' || name === 'stock_quantity'
+      ? value
+      : sanitizeString(value);
+
     setFormData({
       ...formData,
-      [name]: name === 'price' ? parseFloat(value) : name === 'stock_quantity' ? parseInt(value, 10) : value,
+      [name]: name === 'price' ? parseFloat(sanitizedValue) : name === 'stock_quantity' ? parseInt(sanitizedValue, 10) : sanitizedValue,
     });
   };
 

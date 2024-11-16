@@ -1,5 +1,7 @@
+import { isValidString, isValidPrice, isValidQuantity, sanitizeString, validateProductData } from '../../utils/validators';
 
-import React, { useState } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import {
   TextField,
   Button,
@@ -11,6 +13,10 @@ import {
   Card,
   CardContent,
   CardActions,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
 } from '@mui/material';
 
 function AddProductForm({ onSubmit }) {
@@ -25,35 +31,107 @@ function AddProductForm({ onSubmit }) {
     category_id: '',
     subcategory_id: '',
     featured: false,
-    warehouse_stock: [{ warehouse_id: '', quantity: '' }],
   });
+
+  const [categories, setCategories] = useState([]);
+  const [subcategories, setSubcategories] = useState([]);
+  const [filteredSubcategories, setFilteredSubcategories] = useState([]);
+
+  // Fetch categories and subcategories on mount
+  useEffect(() => {
+    const fetchCategoriesAndSubcategories = async () => {
+      try {
+        const response = await fetch('http://127.0.0.1:5000/product/categories', {
+          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+        });
+        if (!response.ok) throw new Error('Failed to fetch categories and subcategories');
+        const data = await response.json();
+        setCategories(data.categories);
+        setSubcategories(data.subcategories);
+      } catch (error) {
+        console.error("Error fetching categories and subcategories:", error);
+      }
+    };
+
+    fetchCategoriesAndSubcategories();
+  }, []);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
-    setProductData({
-      ...productData,
+
+    setProductData((prevData) => ({
+      ...prevData,
       [name]: type === 'checkbox' ? checked : value,
-    });
+    }));
+
+    // Filter subcategories when a category is selected
+    if (name === 'category_id') {
+      const selectedCategoryId = parseInt(value, 10);
+      setFilteredSubcategories(subcategories.filter(sub => sub.category_id === selectedCategoryId));
+      setProductData((prevData) => ({
+        ...prevData,
+        category_id: selectedCategoryId,
+        subcategory_id: '', // Reset subcategory when category changes
+      }));
+    }
+
+    if (name === 'subcategory_id') {
+      setProductData((prevData) => ({
+        ...prevData,
+        subcategory_id: parseInt(value, 10),
+      }));
+    }
   };
 
-  const handleWarehouseChange = (index, e) => {
-    const { name, value } = e.target;
-    const updatedWarehouseStock = productData.warehouse_stock.map((stock, i) =>
-      i === index ? { ...stock, [name]: value } : stock
-    );
-    setProductData({ ...productData, warehouse_stock: updatedWarehouseStock });
-  };
-
-  const addWarehouseStock = () => {
-    setProductData({
-      ...productData,
-      warehouse_stock: [...productData.warehouse_stock, { warehouse_id: '', quantity: '' }],
-    });
-  };
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    onSubmit(productData);
+  
+    // Sanitize and format product data
+    const sanitizedData = {
+      name: sanitizeString(productData.name),
+      description: sanitizeString(productData.description),
+      price: parseFloat(productData.price), // Ensure price is a float
+      size: sanitizeString(productData.size),
+      color: sanitizeString(productData.color),
+      material: sanitizeString(productData.material),
+      stock_quantity: parseInt(productData.stock_quantity, 10), // Ensure stock_quantity is an integer
+      category_id: productData.category_id ? parseInt(productData.category_id, 10) : null,
+      subcategory_id: productData.subcategory_id ? parseInt(productData.subcategory_id, 10) : null,
+      featured: productData.featured,
+    };
+  
+    // Validate required fields
+    if (
+      isValidString(sanitizedData.name) &&
+      isValidString(sanitizedData.description) &&
+      isValidPrice(sanitizedData.price) &&
+      isValidQuantity(sanitizedData.stock_quantity)
+    ) {
+      console.log("Sanitized Product Data to Submit:", sanitizedData); // Debug log
+  
+      // Submit sanitized and validated data
+      onSubmit(sanitizedData);
+  
+      // Clear form fields after successful submission
+      setProductData({
+        name: '',
+        description: '',
+        price: '',
+        size: '',
+        color: '',
+        material: '',
+        stock_quantity: '',
+        category_id: '',
+        subcategory_id: '',
+        featured: false,
+      });
+  
+      // Reset filteredSubcategories to clear subcategory options if needed
+      setFilteredSubcategories([]);
+    } else {
+      alert('Please check your input values for errors.');
+    }
   };
 
   return (
@@ -116,24 +194,39 @@ function AddProductForm({ onSubmit }) {
               <TextField label="Material" name="material" value={productData.material} onChange={handleChange} fullWidth />
             </Grid>
             <Grid item xs={6}>
-              <TextField
-                label="Category ID"
-                name="category_id"
-                type="number"
-                value={productData.category_id}
-                onChange={handleChange}
-                fullWidth
-              />
+              <FormControl fullWidth required>
+                <InputLabel>Category</InputLabel>
+                <Select
+                  name="category_id"
+                  value={productData.category_id}
+                  onChange={handleChange}
+                  label="Category"
+                >
+                  {categories.map((category) => (
+                    <MenuItem key={category.id} value={category.id}>
+                      {category.name}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
             </Grid>
             <Grid item xs={6}>
-              <TextField
-                label="Subcategory ID"
-                name="subcategory_id"
-                type="number"
-                value={productData.subcategory_id}
-                onChange={handleChange}
-                fullWidth
-              />
+              <FormControl fullWidth required>
+                <InputLabel>Subcategory</InputLabel>
+                <Select
+                  name="subcategory_id"
+                  value={productData.subcategory_id}
+                  onChange={handleChange}
+                  label="Subcategory"
+                  disabled={!productData.category_id} // Disable if no category selected
+                >
+                  {filteredSubcategories.map((subcategory) => (
+                    <MenuItem key={subcategory.id} value={subcategory.id}>
+                      {subcategory.name}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
             </Grid>
             <Grid item xs={6}>
               <FormControlLabel
@@ -146,36 +239,6 @@ function AddProductForm({ onSubmit }) {
                 }
                 label="Featured"
               />
-            </Grid>
-            <Grid item xs={12}>
-              <Typography variant="subtitle1">Warehouse Stock</Typography>
-              {productData.warehouse_stock.map((stock, index) => (
-                <Grid container spacing={2} key={index}>
-                  <Grid item xs={6}>
-                    <TextField
-                      label="Warehouse ID"
-                      name="warehouse_id"
-                      type="number"
-                      value={stock.warehouse_id}
-                      onChange={(e) => handleWarehouseChange(index, e)}
-                      fullWidth
-                    />
-                  </Grid>
-                  <Grid item xs={6}>
-                    <TextField
-                      label="Quantity"
-                      name="quantity"
-                      type="number"
-                      value={stock.quantity}
-                      onChange={(e) => handleWarehouseChange(index, e)}
-                      fullWidth
-                    />
-                  </Grid>
-                </Grid>
-              ))}
-              <Button onClick={addWarehouseStock} sx={{ mt: 1 }} variant="outlined">
-                Add Another Warehouse
-              </Button>
             </Grid>
           </Grid>
         </Box>

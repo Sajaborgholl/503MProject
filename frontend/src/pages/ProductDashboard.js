@@ -5,6 +5,7 @@ import { AppBar, Toolbar, Typography, CssBaseline, Drawer, List, ListItem, ListI
 import { useNavigate } from 'react-router-dom';
 import ProductPreview from '../components/ProductPreview/ProductPreview';
 import AddProductForm from '../components/AddProductForm/AddProductForm';
+import BulkUpload from '../components/BulkUpload/BulkUpload';
 
 const drawerWidth = 240;
 
@@ -15,62 +16,55 @@ function ProductDashboard() {
   const [roles, setRoles] = useState([]); // Store admin's roles
   const [isSuperAdmin, setIsSuperAdmin] = useState(false); // Store super admin status
 
-  // Define navigation items with required roles
   const navigationItems = [
     { text: 'Product Dashboard', path: '/dashboard', roles: ['Product Manager'] },
     { text: 'Inventory Dashboard', path: '/inventory', roles: ['Inventory Manager'] },
     { text: 'Orders Dashboard' , path: '/orders', roles: ['Order Manager'] },
   ];
 
+  const fetchProducts = async () => {
+    try {
+      const response = await fetch('http://127.0.0.1:5000/product/all', {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+      });
+      if (!response.ok) throw new Error('Failed to fetch products');
+      const data = await response.json();
+      setProducts(data.products);
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
+  const fetchAdminRoles = async (id) => {
+    try {
+      const response = await fetch(`http://127.0.0.1:5000/admin/${id}/roles`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+      });
+      if (!response.ok) throw new Error('Failed to fetch admin roles');
+      const data = await response.json();
+      setRoles(data.roles);
+      setIsSuperAdmin(data.is_super_admin);
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
   useEffect(() => {
     const adminId = localStorage.getItem('admin_id');
-    console.log("Admin ID:", adminId); // Debug: ensure adminId is set
-    
-    const fetchAdminRoles = async (id) => {
-        try {
-            const response = await fetch(`http://127.0.0.1:5000/admin/${id}/roles`, {
-                headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
-            });
-            console.log("Authorization Token:", localStorage.getItem('token'));
-            if (!response.ok) throw new Error('Failed to fetch admin roles');
-            const data = await response.json();
-            console.log("Fetched Roles Data:", data);
-            setRoles(data.roles);
-            setIsSuperAdmin(data.is_super_admin);
-        } catch (err) {
-            console.error("Error fetching admin roles:", err);
-            setError(err.message);
-        }
-    };
-
-    const fetchProducts = async () => {
-        try {
-            const response = await fetch('http://127.0.0.1:5000/product/all', {
-                headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
-            });
-            if (!response.ok) throw new Error('Failed to fetch products');
-            const data = await response.json();
-            setProducts(data.products);
-        } catch (err) {
-            setError(err.message);
-        }
-    };
-
     if (adminId) {
-        fetchAdminRoles(adminId);
+      fetchAdminRoles(adminId);
     } else {
-        console.error("No admin ID found in localStorage.");
+      console.error("No admin ID found in localStorage.");
     }
 
     fetchProducts();
-}, []);
+  }, []);
 
-
-const handleLogout = () => {
-  localStorage.removeItem('token');
-  localStorage.removeItem('admin_id');
-  navigate('/'); // Redirect to login page
-};
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('admin_id');
+    navigate('/');
+  };
 
   const handleAddProduct = async (productData) => {
     try {
@@ -93,13 +87,13 @@ const handleLogout = () => {
     }
   };
 
-  // Determine which navigation items to show based on roles or super admin status
-  const filteredNavigationItems = isSuperAdmin
-    ? navigationItems // Super admin sees all items
-    : navigationItems.filter(item => item.roles.some(role => roles.includes(role)));
+  const handleBulkUpload = () => {
+    fetchProducts();
+  };
 
-  // Additional Debug Log to Confirm Filtered Navigation Items
-  console.log("Filtered Navigation Items:", filteredNavigationItems); 
+  const filteredNavigationItems = isSuperAdmin
+    ? navigationItems
+    : navigationItems.filter((item) => item.roles.some((role) => roles.includes(role)));
 
   return (
     <Box sx={{ display: 'flex' }}>
@@ -141,6 +135,9 @@ const handleLogout = () => {
           </Grid>
           <Grid item xs={12} md={6}>
             <AddProductForm onSubmit={handleAddProduct} />
+          </Grid>
+          <Grid item xs={12}>
+            <BulkUpload onUpload={handleBulkUpload} />
           </Grid>
         </Grid>
       </Box>

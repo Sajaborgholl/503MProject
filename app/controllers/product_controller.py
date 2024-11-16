@@ -1,6 +1,7 @@
 # app/controllers/product_controller.py
 from flask import Blueprint, request, jsonify, current_app
 from db import get_db_connection
+import logging
 from app.auth.decorators import role_required
 from app.utils.file_upload import save_image_path_to_database, save_image_to_server, allowed_file
 from werkzeug.utils import secure_filename
@@ -18,28 +19,49 @@ product_bp = Blueprint('product', __name__)
 @role_required(["Product Manager", "Super Admin"])
 def add_product():
     data = request.get_json()
+    print("Received Data:", data)  # Log all incoming data
 
     # Use validators for input sanitization and validation
     name = sanitize_string(data.get('name'))
     description = sanitize_string(data.get('description'))
-    price = data.get('price')
+    
+    # Convert price and stock_quantity to appropriate types
+    try:
+        price = float(data.get('price'))
+    except (TypeError, ValueError):
+        return jsonify({"error": "Price must be a valid number."}), 400
+
+    try:
+        stock_quantity = int(data.get('stock_quantity'))
+    except (TypeError, ValueError):
+        return jsonify({"error": "Stock quantity must be a valid integer."}), 400
+
     size = sanitize_string(data.get('size'))
     color = sanitize_string(data.get('color'))
     material = sanitize_string(data.get('material'))
-    stock_quantity = data.get('stock_quantity')
     category_id = data.get('category_id')
     subcategory_id = data.get('subcategory_id')
     featured = data.get('featured', 0)
     warehouse_stock = data.get('warehouse_stock', [])
 
+    # Debug: Print the values and types of key fields after conversion
+    print("Name:", name, type(name))
+    print("Price:", price, type(price))
+    print("Stock Quantity:", stock_quantity, type(stock_quantity))
+
     # Validate required fields
     if not (is_valid_string(name) and is_valid_price(price) and is_valid_quantity(stock_quantity)):
+        print("Validation failed for name, price, or stock quantity.")  # Detailed debug output
         return jsonify({"error": "Invalid input for name, price, or stock quantity."}), 400
+
+    # Continue with the rest of the endpoint logic...
 
     # Validate category and subcategory IDs if provided
     if category_id and not is_valid_id(category_id):
+        logging.error("Invalid input for catgory id.")
         return jsonify({"error": "Invalid category ID."}), 400
     if subcategory_id and not is_valid_id(subcategory_id):
+        logging.error("Invalid input for subcategory.")
         return jsonify({"error": "Invalid subcategory ID."}), 400
 
     try:
@@ -225,51 +247,95 @@ def upload_product_image(product_id):
 @product_bp.route('/bulk-upload', methods=['POST'])
 @role_required(["Product Manager", "Super Admin"])
 def bulk_upload_products():
+    # Check if the file part exists in the request
     if 'file' not in request.files:
+        print("Error: No file part in the request")
         return jsonify({"error": "No file part in the request"}), 400
     
     file = request.files['file']
+    
+    # Check if the file is allowed
     if not allowed_file(file.filename):
+        print(f"Error: Invalid file type for file {file.filename}")
         return jsonify({"error": "Invalid file type, only CSV files are allowed"}), 400
 
     try:
+        # Attempt to decode and read the CSV file
+        print("Decoding and reading CSV file")
         stream = StringIO(file.stream.read().decode("UTF8"), newline=None)
         csv_reader = csv.DictReader(stream)
+        
+        # Initialize database connection
         conn = get_db_connection()
         cursor = conn.cursor()
 
+        # Iterate over rows in the CSV
         for row in csv_reader:
+            print(f"Processing row: {row}")  # Debugging: Print each row
             if 'Name' in row and 'Price' in row and 'StockQuantity' in row:
-                cursor.execute("""
-                    INSERT INTO Product 
-                    (Name, Description, Price, Size, Color, Material, StockQuantity, CategoryID, SubCategoryID)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """, (
-                    row['Name'],
-                    row.get('Description', ''),
-                    float(row['Price']),
-                    row.get('Size', ''),
-                    row.get('Color', ''),
-                    row.get('Material', ''),
-                    int(row['StockQuantity']),
-                    int(row.get('CategoryID', 0)),
-                    int(row.get('SubCategoryID', 0))
-                ))
-                product_id = cursor.lastrowid
-
-                # WarehouseStock is a field with warehouse-specific quantities in "WarehouseID:Quantity" format
-                warehouse_stock = row.get('WarehouseStock', '')
-                for stock_entry in warehouse_stock.split(';'):
-                    warehouse_id, quantity = map(int, stock_entry.split(':'))
+                try:
+                    # Insert product details
                     cursor.execute("""
-                        INSERT INTO Product_Warehouse (ProductID, WarehouseID, StockQuantity)
-                        VALUES (?, ?, ?)
-                    """, (product_id, warehouse_id, quantity))
+                        INSERT INTO Product 
+                        (Name, Description, Price, Size, Color, Material, StockQuantity, CategoryID, SubCategoryID)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """, (
+                        row['Name'],
+                        row.get('Description', ''),
+                        float(row['Price']),
+                        row.get('Size', ''),
+                        row.get('Color', ''),
+                        row.get('Material', ''),
+                        int(row['StockQuantity']),
+                        int(row.get('CategoryID', 0)),
+                        int(row.get('SubCategoryID', 0))
+                    ))
+                    product_id = cursor.lastrowid
+                    print(f"Inserted Product ID: {product_id}")  # Debugging: Print inserted Product ID
 
+                    # Process warehouse stock if available
+                    warehouse_stock = row.get('WarehouseStock', '')
+                    for stock_entry in warehouse_stock.split(';'):
+                        if stock_entry.strip():  # Ensure non-empty entries
+                            try:
+                                warehouse_id, quantity = map(int, stock_entry.split(':'))
+                                cursor.execute("""
+                                    INSERT INTO Product_Warehouse (ProductID, WarehouseID, StockQuantity)
+                                    VALUES (?, ?, ?)
+                                """, (product_id, warehouse_id, quantity))
+                                print(f"Inserted Warehouse stock for Product ID {product_id} with Warehouse ID {warehouse_id} and Quantity {quantity}")
+                            except ValueError as stock_error:
+                                print(f"Error parsing warehouse stock entry '{stock_entry}': {stock_error}")
+                except Exception as row_error:
+                    print(f"Error inserting row {row}: {row_error}")
+                    continue  # Skip to the next row if there's an error with this one
+
+        # Commit the transaction
         conn.commit()
+        print("Bulk upload completed successfully")
         return jsonify({"message": "Bulk upload completed successfully."}), 201
 
     except Exception as e:
+        print(f"General error during file processing: {e}")  # General error logging
         return jsonify({"error": f"An error occurred during upload: {str(e)}"}), 500
     finally:
         conn.close()
+
+
+
+@product_bp.route('/categories', methods=['GET'])
+@role_required(["Product Manager", "Super Admin"])
+def get_categories_and_subcategories():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    # Fetch categories
+    cursor.execute("SELECT CategoryID, Name FROM Category")
+    categories = [{"id": row["CategoryID"], "name": row["Name"]} for row in cursor.fetchall()]
+
+    # Fetch subcategories
+    cursor.execute("SELECT SubCategoryID, Name, CategoryID FROM SubCategory")
+    subcategories = [{"id": row["SubCategoryID"], "name": row["Name"], "category_id": row["CategoryID"]} for row in cursor.fetchall()]
+
+    conn.close()
+    return jsonify({"categories": categories, "subcategories": subcategories}), 200

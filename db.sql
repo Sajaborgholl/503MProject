@@ -84,8 +84,11 @@ CREATE TABLE IF NOT EXISTS Warranty (
 CREATE TABLE IF NOT EXISTS "Order" (
     OrderID INTEGER PRIMARY KEY,
     OrderDate TEXT NOT NULL, -- Store dates in ISO format (YYYY-MM-DD)
-    Status TEXT NOT NULL CHECK(Status IN ('Pending', 'Shipped', 'Delivered')),
+    OrderStatus TEXT NOT NULL CHECK(Status IN ('Pending', 'Processing', 'Shipped', 'Delivered')),
     TotalAmount REAL NOT NULL,
+    ShippingCost REAL DEFAULT 0,
+    TaxRate REAL DEFAULT 0.10,
+    PaymentStatus TEXT NOT NULL CHECK(PaymentStatus IN ('Paid', 'Unpaid', 'Refunded')),
     UserID INTEGER,
     FOREIGN KEY (UserID) REFERENCES User(UserID)
 );
@@ -107,7 +110,11 @@ CREATE TABLE IF NOT EXISTS Return (
     OrderID INTEGER,
     ReturnDate TEXT NOT NULL, -- Store dates in ISO format (YYYY-MM-DD)
     Reason TEXT,
-    Status TEXT NOT NULL,
+    ReturnStatus TEXT NOT NULL CHECK (ReturnStatus IN ('Pending', 'Approved', 'Rejected', 'Processed')), -- Restrict to valid values
+    ReplacementOffered INTEGER DEFAULT 0, -- 0 for No, 1 for Yes
+    RefundAmount REAL DEFAULT 0, -- Amount refunded
+    RefundDate TEXT, -- Date the refund was processed
+    RAction TEXT CHECK (RAction IN ('Refund', 'Replace')) DEFAULT 'Refund', -- Restrict Action to Refund or Replace
     FOREIGN KEY (OrderID) REFERENCES "Order"(OrderID)
 );
 
@@ -175,6 +182,8 @@ CREATE TABLE IF NOT EXISTS Payment (
     OrderID INTEGER,
     PaymentMethod TEXT NOT NULL,
     PaymentStatus TEXT NOT NULL,
+    RefundAmount REAL DEFAULT 0,
+    RefundDate TEXT,
     FOREIGN KEY (OrderID) REFERENCES "Order"(OrderID)
 );
 
@@ -270,4 +279,17 @@ CREATE TABLE IF NOT EXISTS Product_Warehouse (
     PRIMARY KEY (WarehouseID, ProductID),
     FOREIGN KEY (WarehouseID) REFERENCES Warehouse(WarehouseID),
     FOREIGN KEY (ProductID) REFERENCES Product(ProductID)
+);
+
+-- Invoice Table for storing invoice details
+CREATE TABLE IF NOT EXISTS Invoice (
+    InvoiceID INTEGER PRIMARY KEY,
+    InvoiceNumber TEXT NOT NULL UNIQUE, -- e.g., "INV-1001"
+    OrderID INTEGER NOT NULL,
+    InvoiceDate TEXT NOT NULL, -- ISO format (YYYY-MM-DD)
+    TotalAmount REAL NOT NULL,
+    TaxAmount REAL NOT NULL,
+    DiscountAmount REAL DEFAULT 0,
+    FilePath TEXT NOT NULL, -- Path or URL to the generated PDF
+    FOREIGN KEY (OrderID) REFERENCES "Order"(OrderID)
 );

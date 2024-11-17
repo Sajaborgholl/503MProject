@@ -1,0 +1,26 @@
+/* src/components/OrderPreview.css */
+.order-preview {
+    margin-bottom: 16px;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
+    border-radius: 8px;
+  }
+  
+  .order-preview .MuiTypography-h6 {
+    font-weight: bold;
+    color: #3f51b5;
+  }
+  
+  .order-preview .MuiListItem-root {
+    padding: 8px 16px;
+  }
+  
+  .order-preview .MuiDivider-root {
+    margin: 0;
+  }
+  
+  .order-preview .MuiButton-containedPrimary {
+    background-color: #3f51b5;
+    text-transform: none;
+    font-weight: 500;
+  }
+  

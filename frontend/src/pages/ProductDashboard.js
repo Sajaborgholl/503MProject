@@ -1,3 +1,5 @@
+// src/pages/ProductDashboard.js
+
 import React, { useEffect, useState } from 'react';
 import { AppBar, Toolbar, Typography, CssBaseline, Drawer, List, ListItem, ListItemText, Box, Button, Grid } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
@@ -8,7 +10,7 @@ import ImageUpload from '../components/ImageUpload/ImageUpload';
 
 const drawerWidth = 240;
 
-function Dashboard() {
+function ProductDashboard() {
   const navigate = useNavigate();
   const [products, setProducts] = useState([]);
   const [selectedProductId, setSelectedProductId] = useState(null); 
@@ -17,9 +19,9 @@ function Dashboard() {
   const [isSuperAdmin, setIsSuperAdmin] = useState(false); // Store super admin status
 
   const navigationItems = [
-    { text: 'Product Manager Dashboard', path: '/products', roles: ['Product Manager'] },
-    { text: 'Inventory Manager Dashboard', path: '/inventory', roles: ['Inventory Manager'] },
-    { text: 'Orders Manager Dashboard', path: '/orders', roles: ['Order Manager'] },
+    { text: 'Product Dashboard', path: '/dashboard', roles: ['Product Manager'] },
+    { text: 'Inventory Dashboard', path: '/inventory', roles: ['Inventory Manager'] },
+    { text: 'Orders Dashboard' , path: '/orders', roles: ['Order Manager'] },
   ];
 
   const fetchProducts = async () => {
@@ -174,4 +176,4 @@ function Dashboard() {
   );
 }
 
-export default Dashboard;
+export default ProductDashboard;

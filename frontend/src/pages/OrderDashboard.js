@@ -51,7 +51,7 @@ function OrderDashboard() {
 
     const fetchReturns = async () => {
         try {
-            const response = await axios.get('/orders/refunds', {
+            const response = await axios.get('/orders/returns', {
                 headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
             });
             setReturns(response.data);

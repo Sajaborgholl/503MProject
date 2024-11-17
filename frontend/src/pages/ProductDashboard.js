@@ -1,7 +1,7 @@
 // src/pages/ProductDashboard.js
 
 import React, { useEffect, useState } from 'react';
-import { AppBar, Toolbar, Typography, CssBaseline, Drawer, List, ListItem, ListItemText, Box, Button, Grid } from '@mui/material';
+import { AppBar, Toolbar, Typography, CssBaseline, Drawer, List, ListItem, ListItemText, Box, Button, Grid, Divider } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import ProductPreview from '../components/ProductPreview/ProductPreview';
 import AddProductForm from '../components/AddProductForm/AddProductForm';
@@ -13,7 +13,6 @@ const drawerWidth = 240;
 function ProductDashboard() {
   const navigate = useNavigate();
   const [products, setProducts] = useState([]);
-  const [selectedProductId, setSelectedProductId] = useState(null); 
   const [error, setError] = useState(null);
   const [roles, setRoles] = useState([]); // Store admin's roles
   const [isSuperAdmin, setIsSuperAdmin] = useState(false); // Store super admin status
@@ -103,6 +102,7 @@ function ProductDashboard() {
     ? navigationItems
     : navigationItems.filter((item) => item.roles.some((role) => roles.includes(role)));
 
+
   return (
     <Box sx={{ display: 'flex' }}>
       <CssBaseline />
@@ -125,55 +125,52 @@ function ProductDashboard() {
       >
         <Toolbar />
         <List>
-          {filteredNavigationItems.map((item) => (
-            <ListItem button key={item.text} onClick={() => navigate(item.path)}>
-              <ListItemText primary={item.text} />
-            </ListItem>
-          ))}
+          <ListItem button>
+            <ListItemText primary="Product Dashboard" />
+          </ListItem>
+          <ListItem button>
+            <ListItemText primary="Inventory Dashboard" />
+          </ListItem>
+          <ListItem button>
+            <ListItemText primary="Orders Dashboard" />
+          </ListItem>
         </List>
       </Drawer>
 
       <Box component="main" sx={{ flexGrow: 1, p: 3, mt: 8 }}>
-        <Typography variant="h5" gutterBottom>Admin Dashboard</Typography>
+        <Typography variant="h5" gutterBottom>PRODUCT MANAGER</Typography>
+        <Divider sx={{ mb: 3 }} />
+
         {error && <Typography color="error">{error}</Typography>}
 
         <Grid container spacing={2}>
+          {/* Left Column: Split into three rows */}
           <Grid item xs={12} md={6}>
-            <ProductPreview products={products} />
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <AddProductForm onSubmit={handleAddProduct} />
-          </Grid>
-          <Grid item xs={12}>
-            <BulkUpload onUpload={handleBulkUpload} />
+            <Grid container direction="column" spacing={0}>
+              <Grid item>
+                <ProductPreview products={products} />
+              </Grid>
+              <Grid item>
+                <BulkUpload onUpload={handleBulkUpload} />
+              </Grid>
+              <Grid item>
+                <ImageUpload
+                  products={products} // Pass the products list here
+                  onUploadComplete={() => fetchProducts()} // Reload products after image upload
+                />
+              </Grid>
+            </Grid>
           </Grid>
 
+          {/* Right Column: Add Product Form */}
           <Grid item xs={12} md={6}>
-            {/* Image Upload Section */}
-            <Typography variant="h6">Select a Product for Image Upload</Typography>
-            <select onChange={(e) => {setSelectedProductId(e.target.value);
-            console.log("Selected Product ID:", e.target.value); 
-            }}
-            >
-              <option value="">Select Product</option>
-              {products.map((product) => (
-                <option key={product.product_id} value={product.product_id}>
-                  {product.name}
-                </option>
-              ))}
-            </select>
-            {selectedProductId && (
-              <ImageUpload
-                productId={selectedProductId}
-                onUploadComplete={handleImageUploadComplete}
-              />
-            )}
-            
+            <Box sx={{ p: 2}}>
+              <AddProductForm onSubmit={handleAddProduct} />
+            </Box>
           </Grid>
         </Grid>
       </Box>
     </Box>
   );
 }
-
 export default ProductDashboard;

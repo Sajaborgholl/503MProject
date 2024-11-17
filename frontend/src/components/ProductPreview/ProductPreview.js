@@ -2,25 +2,44 @@
 import React from 'react';
 import { Card, CardContent, Typography, Button, List, ListItem, ListItemText, Divider } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
+import LocalMallIcon from '@mui/icons-material/LocalMall'; // Import a product-related icon
 import './ProductPreview.css';
-
 
 function ProductPreview({ products }) {
   const navigate = useNavigate();
 
   return (
-    <Card sx={{ minWidth: 275, boxShadow: 3, borderRadius: 2, mb: 3 }}>
-      <CardContent>
-        <Typography variant="h6" gutterBottom style={{ fontWeight: 'bold', color: '#3f51b5' }}>
+    <Card sx={{ maxWidth: 550, maxHeight: 260, boxShadow: 2, borderRadius: 1, mb: 2 }}>
+      <CardContent sx={{ p: 1 }}>
+        <Typography
+          variant="h6"
+          gutterBottom
+          sx={{
+            fontWeight: 'bold',
+            color: '#3f51b5',
+            fontSize: '1rem',
+            display: 'flex',
+            alignItems: 'center',
+          }}
+        >
+          <LocalMallIcon sx={{ mr: 1 }} /> {/* Add icon with right spacing */}
           Top Products
         </Typography>
-        <List>
+        <List sx={{ maxHeight: 150, overflowY: 'auto', p: 0 }}>
           {products.slice(0, 2).map((product) => (
             <div key={product.product_id}>
-              <ListItem>
+              <ListItem sx={{ py: 0.5 }}>
                 <ListItemText
-                  primary={<Typography variant="body1" style={{ fontWeight: '500' }}>{product.name}</Typography>}
-                  secondary={`Price: $${product.price} | Stock: ${product.stock_quantity}`}
+                  primary={
+                    <Typography variant="body2" sx={{ fontWeight: '500' }}>
+                      {product.name}
+                    </Typography>
+                  }
+                  secondary={
+                    <Typography variant="caption">
+                      Price: ${product.price} | Stock: {product.stock_quantity}
+                    </Typography>
+                  }
                 />
               </ListItem>
               <Divider light />
@@ -32,7 +51,7 @@ function ProductPreview({ products }) {
           color="primary"
           fullWidth
           onClick={() => navigate('/products')}
-          sx={{ mt: 2, backgroundColor: '#3f51b5' }}
+          sx={{ mt: 1, fontSize: '0.8rem', padding: '6px', backgroundColor: '#3f51b5' }}
         >
           See All Products
         </Button>

@@ -17,11 +17,12 @@ def get_realtime_inventory():
     conn = get_db_connection()
     cursor = conn.cursor()
 
-    # Query to fetch product stock levels across warehouses
+    # Query to fetch product stock levels across warehouses along with category name
     cursor.execute("""
-        SELECT p.ProductID, p.Name AS ProductName, pw.WarehouseID, pw.StockQuantity
+        SELECT p.ProductID, p.Name AS ProductName, pw.WarehouseID, pw.StockQuantity, c.Name AS CategoryName
         FROM Product p
         JOIN Product_Warehouse pw ON p.ProductID = pw.ProductID
+        LEFT JOIN Category c ON p.CategoryID = c.CategoryID
     """)
     inventory_data = cursor.fetchall()
 
@@ -36,6 +37,7 @@ def get_realtime_inventory():
         if product_id not in inventory_report:
             inventory_report[product_id] = {
                 "product_name": item["ProductName"],
+                "category_name": item["CategoryName"],
                 "warehouses": []
             }
 

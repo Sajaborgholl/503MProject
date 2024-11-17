@@ -228,7 +228,8 @@ CREATE TABLE IF NOT EXISTS Inventory_Log (
 -- Warehouse Table for tracking multiple storage locations
 CREATE TABLE IF NOT EXISTS Warehouse (
     WarehouseID INTEGER PRIMARY KEY,
-    Location TEXT NOT NULL
+    Location TEXT NOT NULL,
+    WarehouseName TEXT NOT NULL,
 );
 
 

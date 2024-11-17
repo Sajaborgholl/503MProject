@@ -103,7 +103,7 @@ function InventoryDashboard() {
       {/* Main Content */}
       <Box component="main" sx={{ flexGrow: 1, p: 3, mt: 8 }}>
         <Typography variant="h5" gutterBottom>
-          Inventory Management
+        Mind & Body - Inventory Management
         </Typography>
         {error && <Typography color="error">{error}</Typography>}
 

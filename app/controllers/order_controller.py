@@ -426,22 +426,6 @@ def offer_replacement(return_id):
     finally:
         conn.close()
 
-# Route to fetch all refund requests
-@order_bp.route('/refunds', methods=['GET'])
-@role_required(["Order Manager", "Super Admin"])
-def get_all_refunds():
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("""
-        SELECT r.ReturnID, r.OrderID, r.Reason, r.ReturnDate, r.ReturnStatus, r.RAction, 
-               p.PaymentStatus, p.RefundAmount, p.RefundDate
-        FROM "Return" r
-        LEFT JOIN Payment p ON r.OrderID = p.OrderID
-    """)
-    refunds = cursor.fetchall()
-    conn.close()
-    return jsonify([dict(refund) for refund in refunds]), 200
-
 @order_bp.route('/returns/<int:return_id>', methods=['GET'])
 @role_required(["Order Manager", "Super Admin"])
 def get_return_details(return_id):
@@ -458,6 +442,23 @@ def get_return_details(return_id):
     conn.close()
     return jsonify(dict(return_request)), 200
 
+### functions implemented but not used 
+
+# Route to fetch all refund requests
+@order_bp.route('/refunds', methods=['GET'])
+@role_required(["Order Manager", "Super Admin"])
+def get_all_refunds():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT r.ReturnID, r.OrderID, r.Reason, r.ReturnDate, r.ReturnStatus, r.RAction, 
+               p.PaymentStatus, p.RefundAmount, p.RefundDate
+        FROM "Return" r
+        LEFT JOIN Payment p ON r.OrderID = p.OrderID
+    """)
+    refunds = cursor.fetchall()
+    conn.close()
+    return jsonify([dict(refund) for refund in refunds]), 200
 # Route to process a refund manually
 @order_bp.route('/refunds/<int:return_id>/process', methods=['POST'])
 @role_required(["Order Manager", "Super Admin"])

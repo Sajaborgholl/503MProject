@@ -125,13 +125,13 @@ function ProductDashboard() {
       >
         <Toolbar />
         <List>
-          <ListItem button>
-            <ListItemText primary="Product Dashboard" />
+        <ListItem button onClick={() => navigate('/dashboard')}>
+            <ListItemText primary="Products Dashboard" />
           </ListItem>
-          <ListItem button>
+          <ListItem button onClick={() => navigate('/inventory')}>
             <ListItemText primary="Inventory Dashboard" />
           </ListItem>
-          <ListItem button>
+          <ListItem button onClick={() => navigate('/orders')}>
             <ListItemText primary="Orders Dashboard" />
           </ListItem>
         </List>

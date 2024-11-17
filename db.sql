@@ -84,7 +84,7 @@ CREATE TABLE IF NOT EXISTS Warranty (
 CREATE TABLE IF NOT EXISTS "Order" (
     OrderID INTEGER PRIMARY KEY,
     OrderDate TEXT NOT NULL, -- Store dates in ISO format (YYYY-MM-DD)
-    OrderStatus TEXT NOT NULL CHECK(Status IN ('Pending', 'Processing', 'Shipped', 'Delivered')),
+    OrderStatus TEXT NOT NULL CHECK(OrderStatus IN ('Pending', 'Processing', 'Shipped', 'Delivered')),
     TotalAmount REAL NOT NULL,
     ShippingCost REAL DEFAULT 0,
     TaxRate REAL DEFAULT 0.10,

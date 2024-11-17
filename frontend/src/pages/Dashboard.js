@@ -4,12 +4,14 @@ import { useNavigate } from 'react-router-dom';
 import ProductPreview from '../components/ProductPreview/ProductPreview';
 import AddProductForm from '../components/AddProductForm/AddProductForm';
 import BulkUpload from '../components/BulkUpload/BulkUpload';
+import ImageUpload from '../components/ImageUpload/ImageUpload';
 
 const drawerWidth = 240;
 
 function Dashboard() {
   const navigate = useNavigate();
   const [products, setProducts] = useState([]);
+  const [selectedProductId, setSelectedProductId] = useState(null); 
   const [error, setError] = useState(null);
   const [roles, setRoles] = useState([]); // Store admin's roles
   const [isSuperAdmin, setIsSuperAdmin] = useState(false); // Store super admin status
@@ -62,6 +64,12 @@ function Dashboard() {
     localStorage.removeItem('token');
     localStorage.removeItem('admin_id');
     navigate('/');
+  };
+
+  const handleImageUploadComplete = (imageUrl) => {
+    // Refresh products or display the image URL as needed
+    console.log("Image uploaded to:", imageUrl);
+    fetchProducts(); // Call fetchProducts if you want to reload products with the new image
   };
 
   const handleAddProduct = async (productData) => {
@@ -136,6 +144,29 @@ function Dashboard() {
           </Grid>
           <Grid item xs={12}>
             <BulkUpload onUpload={handleBulkUpload} />
+          </Grid>
+
+          <Grid item xs={12} md={6}>
+            {/* Image Upload Section */}
+            <Typography variant="h6">Select a Product for Image Upload</Typography>
+            <select onChange={(e) => {setSelectedProductId(e.target.value);
+            console.log("Selected Product ID:", e.target.value); 
+            }}
+            >
+              <option value="">Select Product</option>
+              {products.map((product) => (
+                <option key={product.product_id} value={product.product_id}>
+                  {product.name}
+                </option>
+              ))}
+            </select>
+            {selectedProductId && (
+              <ImageUpload
+                productId={selectedProductId}
+                onUploadComplete={handleImageUploadComplete}
+              />
+            )}
+            
           </Grid>
         </Grid>
       </Box>

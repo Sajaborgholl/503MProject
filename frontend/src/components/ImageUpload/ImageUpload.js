@@ -21,14 +21,44 @@ function ImageUpload({ products, onUploadComplete }) {
   const handleUpload = async () => {
     if (!selectedFile) {
       setError('Please select an image file.');
+      setSuccessMessage('');
       return;
     }
     if (!selectedProductId) {
       setError('Please select a product.');
+      setSuccessMessage('');
       return;
     }
-    // Image upload handling code here...
+  
+    const formData = new FormData();
+    formData.append('image', selectedFile);
+  
+    try {
+      setError('');
+      setSuccessMessage('');
+  
+      const response = await axios.post(
+        `http://127.0.0.1:5000/product/${selectedProductId}/upload-image`,
+        formData,
+        {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+            Authorization: `Bearer ${localStorage.getItem('token')}`,
+          },
+        }
+      );
+  
+      if (response.status === 201) {
+        setSuccessMessage('Image uploaded successfully.');
+        onUploadComplete(response.data.image_url); // Call the callback function to update the image display
+      } else {
+        setError('Failed to upload image.');
+      }
+    } catch (err) {
+      setError(`Error: ${err.response ? err.response.data.error : 'Server error'}`);
+    }
   };
+  
 
   return (
     <Card sx={{ maxWidth: 550, maxHeight: 260, boxShadow: 2, borderRadius: 1, mb: 2 }}>

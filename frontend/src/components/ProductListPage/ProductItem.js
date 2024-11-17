@@ -1,18 +1,25 @@
 // src/components/ProductList/ProductItem.js
 import React from 'react';
 import { ListItem, ListItemText, IconButton, Divider, Typography } from '@mui/material';
-import VisibilityIcon from '@mui/icons-material/Visibility'; // Import the view (eye) icon
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
+import VisibilityIcon from '@mui/icons-material/Visibility';
+import { useNavigate } from 'react-router-dom';
 
-function ProductItem({ product, onDelete, onEdit, onView }) {
+function ProductItem({ product, onDelete, onEdit }) {
+  const navigate = useNavigate();
+
+  const handleViewDetails = () => {
+    navigate(`/products/${product.product_id}`); // Navigate to ProductDetails with the product ID
+  };
+
   return (
     <>
       <ListItem
         secondaryAction={
           <>
-            <IconButton edge="end" aria-label="view" onClick={onView}> {/* Calls onView when View button is clicked */}
-              <VisibilityIcon color="primary" />
+            <IconButton edge="end" aria-label="view" onClick={handleViewDetails} color="primary">
+              <VisibilityIcon />
             </IconButton>
             <IconButton edge="end" aria-label="edit" onClick={onEdit}>
               <EditIcon />

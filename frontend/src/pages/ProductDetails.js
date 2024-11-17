@@ -14,17 +14,20 @@ function ProductDetails() {
   useEffect(() => {
     const fetchProductDetails = async () => {
       try {
+        console.log(`Fetching details for product ID: ${productId}`);
         const response = await axios.get(`http://127.0.0.1:5000/product/${productId}`, {
           headers: {
             Authorization: `Bearer ${localStorage.getItem('token')}`,
           },
         });
+        console.log("Product details fetched successfully:", response.data);
         if (response.status === 200) {
           setProduct(response.data.product);
         } else {
           setError('Failed to fetch product details');
         }
       } catch (err) {
+        console.error("Error fetching product details:", err);
         setError('An error occurred while fetching product details.');
       } finally {
         setLoading(false);
@@ -35,6 +38,8 @@ function ProductDetails() {
 
   if (loading) return <CircularProgress />;
   if (error) return <Alert severity="error">{error}</Alert>;
+
+  if (!product) return null;
 
   return (
     <Box sx={{ maxWidth: 800, mx: 'auto', p: 2 }}>
@@ -49,14 +54,23 @@ function ProductDetails() {
           <Typography variant="h6" gutterBottom>Product Images</Typography>
           {product.images && product.images.length > 0 ? (
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-              {product.images.map((image, index) => (
-                <img
-                  key={index}
-                  src={image}
-                  alt={`${product.name} - Image ${index + 1}`}
-                  style={{ width: '100%', height: 'auto', borderRadius: 8, boxShadow: '0 4px 8px rgba(0, 0, 0, 0.1)' }}
-                />
-              ))}
+              {product.images.map((image, index) => {
+                const imagePath = `/product/uploads/${image}`; // Updated to directly use the path string
+                console.log(`Rendering image at path: ${imagePath}`);
+
+                return (
+                  <img
+                    key={index}
+                    src={imagePath}
+                    alt={`${product.name} - Image ${index + 1}`}
+                    style={{ width: '100%', height: 'auto', borderRadius: 8, boxShadow: '0 4px 8px rgba(0, 0, 0, 0.1)' }}
+                    onError={(e) => {
+                      console.warn(`Image failed to load, using placeholder for: ${imagePath}`);
+                      e.target.src = '/product/uploads/placeholder.png';
+                    }}
+                  />
+                );
+              })}
             </Box>
           ) : (
             <Typography variant="body2" color="textSecondary">
@@ -71,8 +85,12 @@ function ProductDetails() {
             <Typography variant="h6">Description</Typography>
             <Typography variant="body2" sx={{ mb: 2 }}>{product.description}</Typography>
 
-            <Typography variant="body2"><strong>Price:</strong> ${product.price}</Typography>
-            <Typography variant="body2"><strong>Stock Quantity:</strong> {product.stock_quantity}</Typography>
+            <Typography variant="body2">
+              <strong>Price:</strong> ${product.price.toFixed(2)}
+            </Typography>
+            <Typography variant="body2">
+              <strong>Stock Quantity:</strong> {product.stock_quantity}
+            </Typography>
             <Typography variant="body2"><strong>Size:</strong> {product.size || 'N/A'}</Typography>
             <Typography variant="body2"><strong>Color:</strong> {product.color || 'N/A'}</Typography>
             <Typography variant="body2"><strong>Material:</strong> {product.material || 'N/A'}</Typography>

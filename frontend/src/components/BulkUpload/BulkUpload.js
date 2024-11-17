@@ -1,7 +1,9 @@
 // src/components/BulkUpload.js
+
 import React, { useState } from 'react';
 import { Box, Button, Typography, LinearProgress, Card, CardContent } from '@mui/material';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
+import axios from 'axios';
 
 function BulkUpload({ onUpload }) {
   const [file, setFile] = useState(null);
@@ -20,7 +22,35 @@ function BulkUpload({ onUpload }) {
       setError("Please select a file to upload.");
       return;
     }
-    // File upload handling code here...
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      setUploading(true);
+      setError(null);
+      setSuccess(null);
+
+      const response = await axios.post("http://127.0.0.1:5000/product/bulk-upload", formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+      });
+
+      if (response.status === 201) {
+        setSuccess("Bulk upload completed successfully.");
+        onUpload(); // Trigger parent component to refresh product list if needed
+      } else {
+        setError("Failed to upload file.");
+      }
+    } catch (err) {
+      console.error("Error uploading file:", err);
+      setError("An error occurred during upload. Please try again.");
+    } finally {
+      setUploading(false);
+      setFile(null);
+    }
   };
 
   return (

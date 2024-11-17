@@ -81,7 +81,7 @@ CREATE TABLE IF NOT EXISTS Warranty (
     FOREIGN KEY (ProductID) REFERENCES Product(ProductID)
 );
 
-CREATE TABLE IF NOT EXISTS Order (
+CREATE TABLE IF NOT EXISTS "Order" (
     OrderID INTEGER PRIMARY KEY,
     OrderDate TEXT NOT NULL, -- Store dates in ISO format (YYYY-MM-DD)
     OrderStatus TEXT NOT NULL CHECK(Status IN ('Pending', 'Processing', 'Shipped', 'Delivered')),

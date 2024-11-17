@@ -4,8 +4,6 @@ from app.auth.decorators import role_required
 from datetime import datetime
 from app.utils.inventory import check_and_alert_low_stock
 from app.utils.invoice import generate_invoice
-import sqlite3
-
 order_bp = Blueprint('orders', __name__)
 
 
@@ -103,33 +101,13 @@ def get_all_orders():
     return jsonify([dict(order) for order in orders]), 200
 
 # Route to view a specific order by ID
-# Route to view a specific order by ID
 @order_bp.route('/<int:order_id>', methods=['GET'])
 @role_required(["Order Manager", "Super Admin"])
 def get_order(order_id):
     conn = get_db_connection()
-    conn.row_factory = sqlite3.Row  # Ensure rows are returned as dictionaries
     cursor = conn.cursor()
 
-    # Debugging Step 1: Verify schema of the "Order" table
-    print("Checking schema of the 'Order' table...")
-    cursor.execute("PRAGMA table_info('Order')")
-    order_schema = cursor.fetchall()
-    print("Order table schema:")
-    for column in order_schema:
-        print(column)
-
-    # Debugging Step 2: Verify the specific columns exist
-    required_columns = ['TaxRate', 'ShippingCost', 'PaymentStatus', 'OrderStatus']
-    existing_columns = [col[1] for col in order_schema]  # Column names are in the 2nd index of PRAGMA result
-    for col in required_columns:
-        if col in existing_columns:
-            print(f"Column '{col}' exists in the 'Order' table.")
-        else:
-            print(f"ERROR: Column '{col}' is missing in the 'Order' table!")
-
     # Fetch the order details
-    print(f"Fetching order details for OrderID: {order_id}...")
     cursor.execute("""
         SELECT o.OrderID, o.OrderDate, o.OrderStatus, o.TotalAmount, 
                o.ShippingCost, o.TaxRate, o.PaymentStatus, c.name AS CustomerName
@@ -138,19 +116,12 @@ def get_order(order_id):
         WHERE o.OrderID = ?
     """, (order_id,))
     order = cursor.fetchone()
-
+    
     if not order:
-        print(f"OrderID {order_id} not found.")
         conn.close()
         return jsonify({"error": "Order not found"}), 404
 
-    # Debugging Step 3: Print the fetched order details
-    print("Order details fetched successfully:")
-    for key, value in dict(order).items():
-        print(f"{key}: {value}")
-
-    # Fetch the products in this order
-    print(f"Fetching products for OrderID: {order_id}...")
+    # Fetch the products in this order with names
     cursor.execute("""
         SELECT p.Name AS ProductName, op.Quantity
         FROM Order_Product op
@@ -158,20 +129,12 @@ def get_order(order_id):
         WHERE op.OrderID = ?
     """, (order_id,))
     products = cursor.fetchall()
-
-    # Debugging Step 4: Print the fetched products
-    print("Products fetched successfully:")
-    for product in products:
-        print(dict(product))
-
     conn.close()
 
-    # Return the result as JSON
     return jsonify({
         "order": dict(order),
         "products": [dict(product) for product in products]
     }), 200
-
 
 # Route to update the status of an order
 @order_bp.route('/<int:order_id>/update-status', methods=['PUT'])

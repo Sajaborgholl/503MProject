@@ -62,6 +62,10 @@ function ProductList() {
     setSelectedProduct(null);
   };
 
+  const handleViewProduct = (productId) => {
+    window.location.href = `/product-details/${productId}`; // Navigate to product details page
+  };
+  
   const handleSaveEdit = async (updatedProductData) => {
     if (!selectedProduct) return;
 
@@ -94,6 +98,7 @@ function ProductList() {
             product={product}
             onDelete={() => handleOpenDeleteDialog(product)}
             onEdit={() => handleOpenEditDialog(product)}
+            onView={() => handleViewProduct(product.product_id)} 
           />
         ))}
       </List>

@@ -339,3 +339,74 @@ def get_categories_and_subcategories():
 
     conn.close()
     return jsonify({"categories": categories, "subcategories": subcategories}), 200
+
+
+@product_bp.route('/<int:product_id>', methods=['GET'])
+@role_required(["Product Manager", "Super Admin"])
+def get_product_details(product_id):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        # Fetch the main product details
+        cursor.execute("""
+            SELECT ProductID, Name, Description, Price, Size, Color, Material, StockQuantity, CategoryID, SubCategoryID, Featured
+            FROM Product
+            WHERE ProductID = ?
+        """, (product_id,))
+        
+        product = cursor.fetchone()
+        if not product:
+            return jsonify({"error": "Product not found"}), 404
+
+        # Format the main product details
+        product_details = {
+            "product_id": product["ProductID"],
+            "name": product["Name"],
+            "description": product["Description"],
+            "price": product["Price"],
+            "size": product["Size"],
+            "color": product["Color"],
+            "material": product["Material"],
+            "stock_quantity": product["StockQuantity"],
+            "category_id": product["CategoryID"],
+            "sub_category_id": product["SubCategoryID"],
+            "featured": bool(product["Featured"]),
+        }
+
+        # Fetch related warehouse stock information
+        cursor.execute("""
+            SELECT WarehouseID, StockQuantity
+            FROM Product_Warehouse
+            WHERE ProductID = ?
+        """, (product_id,))
+        
+        warehouse_stock = [{"warehouse_id": row["WarehouseID"], "quantity": row["StockQuantity"]} for row in cursor.fetchall()]
+        product_details["warehouse_stock"] = warehouse_stock
+
+        # Fetch image path if available
+        cursor.execute("""
+            SELECT ImagePath FROM Product_Images
+            WHERE ProductID = ?
+        """, (product_id,))
+        images = [row["ImagePath"] for row in cursor.fetchall()]
+        product_details["images"] = images
+
+        # Fetch category and subcategory names if available
+        cursor.execute("SELECT Name FROM Category WHERE CategoryID = ?", (product["CategoryID"],))
+        category = cursor.fetchone()
+        if category:
+            product_details["category_name"] = category["Name"]
+
+        cursor.execute("SELECT Name FROM SubCategory WHERE SubCategoryID = ?", (product["SubCategoryID"],))
+        subcategory = cursor.fetchone()
+        if subcategory:
+            product_details["sub_category_name"] = subcategory["Name"]
+
+        return jsonify({"product": product_details}), 200
+
+    except Exception as e:
+        logging.error(f"Error fetching product details for product_id {product_id}: {e}")
+        return jsonify({"error": str(e)}), 500
+    finally:
+        conn.close()

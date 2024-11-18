@@ -98,6 +98,7 @@ function ProductDashboard() {
     fetchProducts();
   };
 
+
   const filteredNavigationItems = isSuperAdmin
     ? navigationItems
     : navigationItems.filter((item) => item.roles.some((role) => roles.includes(role)));
@@ -125,15 +126,11 @@ function ProductDashboard() {
       >
         <Toolbar />
         <List>
-        <ListItem button onClick={() => navigate('/dashboard')}>
-            <ListItemText primary="Products Dashboard" />
-          </ListItem>
-          <ListItem button onClick={() => navigate('/inventory')}>
-            <ListItemText primary="Inventory Dashboard" />
-          </ListItem>
-          <ListItem button onClick={() => navigate('/orders')}>
-            <ListItemText primary="Orders Dashboard" />
-          </ListItem>
+          {filteredNavigationItems.map((item) => (
+            <ListItem button key={item.text} onClick={() => navigate(item.path)}>
+              <ListItemText primary={item.text} />
+            </ListItem>
+          ))}
         </List>
       </Drawer>
 

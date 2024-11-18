@@ -19,23 +19,34 @@ def login():
     email = data.get("email")
     password = data.get("password")
 
+    print(f"Login attempt for email: {email}")  # Log email to verify the received value
+
     # Database connection and user authentication logic
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("SELECT * FROM Administrator WHERE Email = ?", (email,))
     user = cursor.fetchone()
 
-    if user and check_password_hash(user["Password"], password):
+    if user:
+        print("User found:", user["UserID"])  # Log user existence
+        print("Stored hashed password:", user["Password"])  # Log stored hash
+    else:
+        print("No user found with this email.")
+        return jsonify({"error": "Invalid credentials"}), 401
+
+    # Verify password
+    if user and check_password_hash(user["Password"], password,):
+        print("Password verified successfully.")
         access_token = create_access_token(
             identity={"user_id": user["UserID"], "role": user["Role"], "is_super_admin": user["is_super_admin"]}
         )
         return jsonify({
             "access_token": access_token,
-            "user_id": user["UserID"]  # Ensure this matches the actual ID field in your database
+            "user_id": user["UserID"]
         })
-
-    return jsonify({"error": "Invalid credentials"}), 401
-
+    else:
+        print("Password verification failed.")
+        return jsonify({"error": "Invalid credentials"}), 401
 
 
 @auth_bp.route('/logout', methods=['POST'])

@@ -73,25 +73,32 @@ function OrderListPage() {
   };
 
   const handleGetInvoice = async (orderId) => {
-    console.log(`Fetching invoice for Order ID: ${orderId}`); // Debug log
+    console.log(`Fetching invoice for Order ID: ${orderId}`);
     try {
       const response = await axios.get(`http://localhost:5000/orders/${orderId}/invoice`, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem('token')}`,
         },
-        responseType: 'blob',
+        responseType: 'blob', // Ensure response is received as a Blob
       });
-
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', `invoice_${orderId}.pdf`);
-      document.body.appendChild(link);
-      link.click();
+  
+      if (response.status === 200) {
+        const url = window.URL.createObjectURL(new Blob([response.data]));
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', `invoice_${orderId}.pdf`);
+        document.body.appendChild(link);
+        link.click();
+        link.remove(); // Clean up link element
+        window.URL.revokeObjectURL(url); // Release memory
+      } else {
+        console.error(`Failed to fetch invoice: Received status ${response.status}`);
+      }
     } catch (err) {
       console.error(`Error fetching invoice for order ${orderId}:`, err);
     }
   };
+  
 
   const handleBackToDashboard = () => {
     navigate('/orders');

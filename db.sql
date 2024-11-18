@@ -219,10 +219,13 @@ CREATE TABLE IF NOT EXISTS Activity_Log (
 CREATE TABLE IF NOT EXISTS Inventory_Log (
     LogID INTEGER PRIMARY KEY,
     ProductID INTEGER,
+    WarehouseID INTEGER,
     ChangeAmount INTEGER NOT NULL,
-    ChangeType TEXT NOT NULL, -- e.g., 'Restock', 'Sale'
+    StockLevel INTEGER NOT NULL, -- Add this column
+    ChangeType TEXT NOT NULL, -- e.g., 'Restock', 'Sale', 'Low Stock Alert'
     Timestamp TEXT NOT NULL, -- Store timestamps in ISO format
-    FOREIGN KEY (ProductID) REFERENCES Product(ProductID)
+    FOREIGN KEY (ProductID) REFERENCES Product(ProductID),
+    FOREIGN KEY (WarehouseID) REFERENCES Warehouse(WarehouseID)
 );
 
 -- Warehouse Table for tracking multiple storage locations

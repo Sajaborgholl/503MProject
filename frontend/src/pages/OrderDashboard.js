@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
-import { Typography, Grid, Box, Button, Paper, AppBar, Toolbar, Drawer, List, ListItem, ListItemText } from '@mui/material';
+import { Typography, Grid, Box, Button, Paper, AppBar, Toolbar, Drawer, List, ListItem, ListItemText, Divider } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import OrderPreview from '../components/OrderPreview/OrderPreview';
 import ReturnPreview from '../components/ReturnPreview/ReturnPreview';
@@ -124,9 +124,8 @@ const handleLogout = () => {
 
       {/* Main Content */}
       <Box component="main" sx={{ flexGrow: 1, p: 3, mt: 8 }}>
-        <Typography variant="h5" gutterBottom>
-          Order Management
-        </Typography>
+        <Typography variant="h5" gutterBottom>ORDER MANAGER</Typography>
+         <Divider sx={{ mb: 3 }} />
 
         {/* Orders List */}
         <Grid container spacing={2}>

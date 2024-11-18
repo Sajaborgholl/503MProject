@@ -3,6 +3,7 @@ import React from 'react';
 import { Card, CardContent, Typography, Button, List, ListItem, ListItemText, Divider } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import './ReturnPreview.css';
+import ReplayIcon from '@mui/icons-material/Replay';
 
 function ReturnPreview({ returns }) {
     const navigate = useNavigate();
@@ -11,6 +12,7 @@ function ReturnPreview({ returns }) {
         <Card sx={{ minWidth: 275, boxShadow: 3, borderRadius: 2, mb: 3 }}>
             <CardContent>
                 <Typography variant="h6" gutterBottom style={{ fontWeight: 'bold', color: '#3f51b5' }}>
+                    <ReplayIcon sx={{ marginRight: 1 }} /> {/* Returns Icon */}
                     Recent Returns Requests
                 </Typography>
                 <List>

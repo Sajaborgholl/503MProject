@@ -21,14 +21,23 @@ def setup_database():
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
-        cursor.executescript(sql_script)
+
+        # Split the SQL script into individual statements
+        sql_statements = sql_script.split(';')
+        
+        for idx, statement in enumerate(sql_statements):
+            statement = statement.strip()  # Remove leading/trailing whitespace
+            if statement:  # Skip empty statements
+                try:
+                    cursor.execute(statement)
+                except sqlite3.Error as error:
+                    print(f"Error in statement #{idx + 1}: {statement}")
+                    print(f"SQLite error: {error}")
+                    break  # Exit on the first error
+
         print("Database setup completed successfully.")
     except sqlite3.Error as error:
         print("Error executing script:", error)
     finally:
         conn.commit()
         conn.close()
-
-
-if __name__ == "__main__":
-    setup_database()

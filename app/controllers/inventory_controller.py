@@ -6,8 +6,10 @@ from app.utils.inventory import (
     calculate_popular_products,
     predict_future_demand
 )
+from flask_cors import CORS
 
 inventory_bp = Blueprint('inventory', __name__)
+CORS(inventory_bp, resources={r"/inventory/*": {"origins": "http://localhost:3000"}})
 
 # Route to get real-time inventory levels across warehouses
 @inventory_bp.route('/realtime-inventory', methods=['GET'])
@@ -50,6 +52,11 @@ def get_realtime_inventory():
     conn.close()
     return jsonify(inventory_report), 200
 
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.DEBUG)
+
 # Route for generating a comprehensive inventory report
 @inventory_bp.route('/inventory-report', methods=['GET'])
 @role_required(["Inventory Manager", "Super Admin"])
@@ -57,19 +64,26 @@ def generate_inventory_report():
     conn = get_db_connection()
     cursor = conn.cursor()
 
-    # 1. Inventory Turnover
-    turnover_report = calculate_inventory_turnover(cursor)
+    try:
+        # 1. Inventory Turnover
+        turnover_report = calculate_inventory_turnover(cursor)
 
-    # 2. Most Popular Products
-    popular_products_report = calculate_popular_products(cursor)
+        # 2. Most Popular Products
+        popular_products_report = calculate_popular_products(cursor)
 
-    # 3. Demand Prediction (Optional)
-    demand_prediction_report = predict_future_demand(cursor)
+        # 3. Demand Prediction
+        demand_prediction_report = predict_future_demand(cursor)
 
-    conn.close()
+        return jsonify({
+            "inventory_turnover": turnover_report,
+            "popular_products": popular_products_report,
+            "demand_prediction": demand_prediction_report
+        }), 200
 
-    return jsonify({
-        "inventory_turnover": turnover_report,
-        "popular_products": popular_products_report,
-        "demand_prediction": demand_prediction_report
-    }), 200
+    except Exception as e:
+        # Log the error with traceback
+        logging.exception("Error generating inventory report")
+        return jsonify({"error": "Failed to generate inventory report"}), 500
+
+    finally:
+        conn.close()

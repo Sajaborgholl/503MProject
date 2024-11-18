@@ -3,6 +3,7 @@ import React from 'react';
 import { Card, CardContent, Typography, Button, List, ListItem, ListItemText, Divider } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import './OrderPreview.css';
+import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
 
 function OrderPreview({ orders }) {
   const navigate = useNavigate();
@@ -11,6 +12,7 @@ function OrderPreview({ orders }) {
     <Card sx={{ minWidth: 275, boxShadow: 3, borderRadius: 2, mb: 3 }}>
       <CardContent>
         <Typography variant="h6" gutterBottom style={{ fontWeight: 'bold', color: '#3f51b5' }}>
+          <ShoppingCartIcon sx={{ marginRight: 1 }} /> {/* Orders Icon */}
           Recent Orders
         </Typography>
         <List>

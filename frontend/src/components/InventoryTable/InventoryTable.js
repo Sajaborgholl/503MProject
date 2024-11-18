@@ -16,8 +16,10 @@ import {
   TableHead,
   TableRow,
   Paper,
-  Typography, // Import Typography
+  Typography,
+  TablePagination,
 } from '@mui/material';
+import InventoryIcon from '@mui/icons-material/Inventory';
 
 function InventoryTable({ inventory, criticalThreshold, lowThreshold }) {
   // State variables for filters
@@ -25,7 +27,14 @@ function InventoryTable({ inventory, criticalThreshold, lowThreshold }) {
   const [filterWarehouseId, setFilterWarehouseId] = useState('');
   const [filterStockStatus, setFilterStockStatus] = useState('');
   const [filterCategory, setFilterCategory] = useState('');
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
 
+  const handleChangePage = (event, newPage) => setPage(newPage);
+  const handleChangeRowsPerPage = (event) => {
+    setRowsPerPage(parseInt(event.target.value, 10));
+    setPage(0);
+  };
   // Process inventory data into an array of items
   const inventoryItems = [];
   for (const [productId, productData] of Object.entries(inventory)) {
@@ -64,12 +73,14 @@ function InventoryTable({ inventory, criticalThreshold, lowThreshold }) {
     return matchesSearch && matchesWarehouse && matchesStockStatus && matchesCategory;
   });
 
+  const paginatedItems = filteredItems.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
+
   // Function to determine the background color based on stock levels
   function getStockColor(stockQuantity) {
     if (stockQuantity <= criticalThreshold) {
-      return 'red';
+      return '#e27272';
     } else if (stockQuantity <= lowThreshold) {
-      return 'yellow';
+      return '#e7df7e';
     } else {
       return 'inherit'; // Default color
     }
@@ -79,6 +90,7 @@ function InventoryTable({ inventory, criticalThreshold, lowThreshold }) {
     <Box>
       {/* Table Title */}
       <Typography variant="h6" gutterBottom sx={{ color: '#3f51b5', fontWeight: 'bold' }}>
+      <InventoryIcon sx={{ mr: 1, color: '#3f51b5' }} />
         Inventory Table
       </Typography>
 
@@ -170,23 +182,33 @@ function InventoryTable({ inventory, criticalThreshold, lowThreshold }) {
             </TableRow>
           </TableHead>
           <TableBody>
-            {filteredItems.map((item, index) => (
-              <TableRow key={index}>
-                <TableCell>{item.productId}</TableCell>
-                <TableCell>{item.productName}</TableCell>
-                <TableCell>{item.categoryName}</TableCell>
-                <TableCell>{item.warehouseId}</TableCell>
-                <TableCell
-                  style={{
-                    backgroundColor: getStockColor(item.stockQuantity),
-                  }}
-                >
-                  {item.stockQuantity}
-                </TableCell>
-              </TableRow>
+            {paginatedItems.map((item, index) => (
+
+                <TableRow key={index}>
+                  <TableCell>{item.productId}</TableCell>
+                  <TableCell>{item.productName}</TableCell>
+                  <TableCell>{item.categoryName}</TableCell>
+                  <TableCell>{item.warehouseId}</TableCell>
+                  <TableCell
+                    style={{
+                      backgroundColor: getStockColor(item.stockQuantity),
+                    }}
+                  >
+                    {item.stockQuantity}
+                  </TableCell>
+                </TableRow>
             ))}
           </TableBody>
         </Table>
+        <TablePagination
+          rowsPerPageOptions={[10, 20, 30]}
+          component="div"
+          count={filteredItems.length}
+          rowsPerPage={rowsPerPage}
+          page={page}
+          onPageChange={handleChangePage}
+          onRowsPerPageChange={handleChangeRowsPerPage}
+        />
       </TableContainer>
     </Box>
   );

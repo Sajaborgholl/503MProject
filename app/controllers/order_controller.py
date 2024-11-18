@@ -5,7 +5,7 @@ from datetime import datetime
 from app.utils.inventory import check_and_alert_low_stock
 from app.utils.invoice import generate_invoice
 order_bp = Blueprint('orders', __name__)
-
+import os
 
 # Route to create a new order
 @order_bp.route('/create', methods=['POST'])
@@ -171,7 +171,8 @@ def update_order_status(order_id):
 def get_invoice(order_id):
     try:
         current_app.logger.info(f"Received request to generate invoice for Order ID: {order_id}")
-        
+        print(os.path.exists("./invoices/invoice_1.pdf"))  # Should print True
+
         # Attempt to generate the invoice
         invoice_path = generate_invoice(order_id)
         

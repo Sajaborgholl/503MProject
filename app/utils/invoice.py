@@ -14,11 +14,21 @@ def generate_invoice(order_id):
         
         # Fetch order details
         cursor.execute("""
-            SELECT o.OrderID, o.OrderDate, o.TotalAmount, o.ShippingCost, o.TaxRate, o.PaymentStatus,
-                   c.Name, c.Email, c.Address, c.MembershipTier
+            SELECT 
+                o.OrderID, 
+                o.OrderDate, 
+                o.TotalAmount, 
+                o.ShippingCost, 
+                o.TaxRate, 
+                o.PaymentStatus,
+                COALESCE(c.Name, 'Guest User') AS Name,
+                COALESCE(c.Email, 'guest@example.com') AS Email,
+                COALESCE(c.Address, 'Not Provided') AS Address,
+                c.MembershipTier
             FROM "Order" o
-            JOIN Customer c ON o.UserID = c.UserID
-            WHERE o.OrderID = ?
+            LEFT JOIN Customer c ON o.UserID = c.UserID
+            LEFT JOIN Guest g ON o.UserID = g.GuestID
+            WHERE o.OrderID = ?;
         """, (order_id,))
         order = cursor.fetchone()
         

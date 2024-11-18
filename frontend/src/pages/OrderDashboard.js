@@ -17,6 +17,12 @@ function OrderDashboard() {
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [returns, setReturns] = useState([]);
 
+  const navigationItems = [
+    { text: 'Product Dashboard', path: '/dashboard', roles: ['Product Manager'] },
+    { text: 'Inventory Dashboard', path: '/inventory', roles: ['Inventory Manager'] },
+    { text: 'Orders Dashboard', path: '/orders', roles: ['Order Manager'] },
+  ];
+
   useEffect(() => {
     const adminId = localStorage.getItem('admin_id');
     console.log("Admin ID:", adminId); // Debug: ensure adminId is set
@@ -85,6 +91,11 @@ const handleLogout = () => {
     navigate('/'); // Redirect to login page
 };
 
+const filteredNavigationItems = isSuperAdmin
+? navigationItems
+: navigationItems.filter((item) => item.roles.some((role) => roles.includes(role)));
+
+
   return (
     <Box sx={{ display: 'flex' }}>
       {/* AppBar */}
@@ -110,15 +121,11 @@ const handleLogout = () => {
       >
         <Toolbar />
         <List>
-          <ListItem button onClick={() => navigate('/dashboard')}>
-            <ListItemText primary="Products Dashboard" />
-          </ListItem>
-          <ListItem button onClick={() => navigate('/inventory')}>
-            <ListItemText primary="Inventory Dashboard" />
-          </ListItem>
-          <ListItem button onClick={() => navigate('/orders')}>
-            <ListItemText primary="Orders Dashboard" />
-          </ListItem>
+          {filteredNavigationItems.map((item) => (
+            <ListItem button key={item.text} onClick={() => navigate(item.path)}>
+              <ListItemText primary={item.text} />
+            </ListItem>
+          ))}
         </List>
       </Drawer>
 

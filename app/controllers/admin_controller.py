@@ -46,7 +46,9 @@ def add_admin():
             return jsonify({"error": "Admin with this email already exists"}), 409
 
         # Insert new admin with hashed password
-        hashed_password = generate_password_hash(password)
+        # Inside the add_admin function in your add-admin route
+        hashed_password = generate_password_hash(password, method="scrypt")  # Explicitly specify 'scrypt'
+
         cursor.execute(
             "INSERT INTO Administrator (Name, Email, Password, Role, is_super_admin) VALUES (?, ?, ?, ?, ?)",
             (name, email, hashed_password, 'Admin', 0)

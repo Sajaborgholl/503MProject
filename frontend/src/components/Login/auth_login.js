@@ -11,37 +11,48 @@ function AuthLogin() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const navigate = useNavigate();
 
-  const handleLogin = async (e) => {
-    e.preventDefault();
-    try {
-      const response = await fetch('http://127.0.0.1:5000/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, password }),
+ // src/components/Login/auth_login.js
+
+const handleLogin = async (e) => {
+  e.preventDefault();
+  try {
+    const response = await fetch('http://127.0.0.1:5000/auth/login', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email, password }),
+    });
+    const data = await response.json();
+
+    if (response.ok) {
+      localStorage.setItem('token', data.access_token);
+      localStorage.setItem('admin_id', data.user_id);
+      
+      const rolesResponse = await fetch(`http://127.0.0.1:5000/admin/${data.user_id}/roles`, {
+        headers: { Authorization: `Bearer ${data.access_token}` },
       });
+      const rolesData = await rolesResponse.json();
 
-      const data = await response.json();
-      console.log("Login Response Data:", data); 
-
-      if (response.ok) {
-        localStorage.setItem('token', data.access_token);
-        localStorage.setItem('admin_id', data.user_id);
-        console.log('Token stored:', localStorage.getItem('token')); 
-        setIsAuthenticated(true);
+      // Redirect to the correct dashboard based on roles
+      if (rolesData.roles.includes("Product Manager")) {
         navigate('/dashboard');
+      } else if (rolesData.roles.includes("Inventory Manager")) {
+        navigate('/inventory');
+      } else if (rolesData.roles.includes("Order Manager")) {
+        navigate('/orders');
       } else {
-        setError(data.error || 'Login failed');
-        setEmail('');
-        setPassword(''); // Clear password field if login fails
+        setError("No accessible dashboards for this user.");
       }
-    } catch (error) {
-      setError('Network error');
-      setEmail('');
-      setPassword(''); // Clear password field on network error
+    } else {
+      setError(data.error || 'Login failed');
     }
-  };
+  } catch (error) {
+    setError('Network error');
+  }
+};
+
+  
 
   useEffect(() => {
     // Clear fields when component is loaded or reloaded

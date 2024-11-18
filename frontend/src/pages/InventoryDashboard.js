@@ -1,3 +1,5 @@
+// src/pages/InventoryDashboard.js
+
 import React, { useEffect, useState } from 'react';
 import {
   AppBar,
@@ -31,12 +33,40 @@ function InventoryDashboard() {
   const [inventory, setInventory] = useState({});
   const [error, setError] = useState(null);
   const [inventoryReport, setInventoryReport] = useState(null);
+  const [roles, setRoles] = useState([]); // Store admin's roles
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+
+  const navigationItems = [
+    { text: 'Product Dashboard', path: '/dashboard', roles: ['Product Manager'] },
+    { text: 'Inventory Dashboard', path: '/inventory', roles: ['Inventory Manager'] },
+    { text: 'Orders Dashboard', path: '/orders', roles: ['Order Manager'] },
+  ];
 
   // Stock thresholds
   const criticalThreshold = 10;
   const lowThreshold = 20;
 
   useEffect(() => {
+    const adminId = localStorage.getItem('admin_id');
+
+    const fetchAdminRoles = async (id) => {
+      try {
+        console.log("Fetching roles for Admin ID:", id);
+        const response = await fetch(`http://127.0.0.1:5000/admin/${id}/roles`, {
+          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+        });
+        if (!response.ok) throw new Error('Failed to fetch admin roles');
+        const data = await response.json();
+        console.log("Fetched Roles Data:", data); // Log response data
+        setRoles(data.roles);
+        setIsSuperAdmin(data.is_super_admin);
+      } catch (err) {
+        console.error("Error fetching admin roles:", err); // Logs specific error
+        setError(err.message);
+      }
+    };
+    
+
     const fetchInventory = async () => {
       try {
         const response = await axios.get('http://127.0.0.1:5000/inventory/realtime-inventory', {
@@ -59,6 +89,10 @@ function InventoryDashboard() {
       }
     };
 
+    if (adminId) {
+      fetchAdminRoles(adminId);
+    }
+
     fetchInventory();
     fetchInventoryReport();
 
@@ -75,6 +109,10 @@ function InventoryDashboard() {
     localStorage.removeItem('admin_id');
     navigate('/');
   };
+
+  const filteredNavigationItems = isSuperAdmin
+    ? navigationItems
+    : navigationItems.filter((item) => item.roles.some((role) => roles.includes(role)));
 
   return (
     <Box sx={{ display: 'flex' }}>
@@ -103,15 +141,11 @@ function InventoryDashboard() {
       >
         <Toolbar />
         <List>
-          <ListItem button onClick={() => navigate('/dashboard')}>
-            <ListItemText primary="Products Dashboard" />
-          </ListItem>
-          <ListItem button onClick={() => navigate('/inventory')}>
-            <ListItemText primary="Inventory Dashboard" />
-          </ListItem>
-          <ListItem button onClick={() => navigate('/orders')}>
-            <ListItemText primary="Orders Dashboard" />
-          </ListItem>
+          {filteredNavigationItems.map((item) => (
+            <ListItem button key={item.text} onClick={() => navigate(item.path)}>
+              <ListItemText primary={item.text} />
+            </ListItem>
+          ))}
         </List>
       </Drawer>
 
@@ -127,7 +161,7 @@ function InventoryDashboard() {
 
           {/* Notifications Section */}
           <Grid item xs={12} md={4}>
-            <Box sx={{ mt: -2, mb: 1 }}> {/* Adjust the margin-top to raise the notification */}
+            <Box sx={{ mt: -2, mb: 1 }}>
               <InventoryNotification inventory={inventory} criticalThreshold={criticalThreshold} />
             </Box>
           </Grid>
@@ -139,16 +173,14 @@ function InventoryDashboard() {
         <Grid container spacing={3}>
           {/* Inventory Table Section */}
           <Grid item xs={12} md={8}>
-            <Box
-            sx={{
-                  border: '1px solid #ddd',
-                  borderRadius: '8px',
-                  padding: 2,
-                  backgroundColor: '#ffffff',
-                  boxShadow: '0px 2px 5px rgba(0, 0, 0, 0.1)',
-                }}
-              >
-              {/* Inventory Table */}
+            <Box sx={{
+                border: '1px solid #ddd',
+                borderRadius: '8px',
+                padding: 2,
+                backgroundColor: '#ffffff',
+                boxShadow: '0px 2px 5px rgba(0, 0, 0, 0.1)',
+              }}
+            >
               <InventoryTable
                 inventory={inventory}
                 criticalThreshold={criticalThreshold}
@@ -185,7 +217,6 @@ function InventoryDashboard() {
           <Grid item xs={12} md={4}>
             {inventoryReport ? (
               <Box mt={4}>
-                {/* Inventory Turnover Rate */}
                 <Box
                   mt={4}
                   sx={{
@@ -199,7 +230,6 @@ function InventoryDashboard() {
                   <InventoryTurnoverChart data={inventoryReport?.inventory_turnover || []} />
                 </Box>
 
-                {/* Popular Products */}
                 <Box
                   mt={4}
                   sx={{

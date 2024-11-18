@@ -34,7 +34,7 @@ function ProductPreview({ products }) {
                   <IconButton
                     edge="end"
                     aria-label="view"
-                    onClick={() => navigate(`/product-details/${product.product_id}`)} // Link to details page
+                    onClick={() => navigate(`/products/${product.product_id}`)} // Link to details page
                   >
                     <VisibilityIcon color="primary" /> {/* Eye icon for product view */}
                   </IconButton>

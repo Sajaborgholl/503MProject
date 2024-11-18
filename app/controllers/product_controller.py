@@ -6,6 +6,8 @@ from app.auth.decorators import role_required
 from app.utils.file_upload import save_image_path_to_database, save_image_to_server, allowed_file
 from werkzeug.utils import secure_filename
 import csv
+from flask import send_from_directory
+
 from io import StringIO
 from app.utils.validators import (
     is_valid_string, is_valid_price, is_valid_quantity, is_valid_id,
@@ -223,6 +225,11 @@ def list_products():
     finally:
         conn.close()
 
+@product_bp.route('/uploads/<path:filename>')
+def serve_uploads(filename):
+    return send_from_directory(current_app.config['UPLOAD_FOLDER'], filename)
+
+
 @product_bp.route('/<int:product_id>/upload-image', methods=['POST'])
 @role_required(["Product Manager", "Super Admin"])
 def upload_product_image(product_id):
@@ -339,3 +346,91 @@ def get_categories_and_subcategories():
 
     conn.close()
     return jsonify({"categories": categories, "subcategories": subcategories}), 200
+
+@product_bp.route('/<int:product_id>', methods=['GET'])
+@role_required(["Product Manager", "Super Admin"])
+def get_product_details(product_id):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        # Print entry into the function
+        print(f"Fetching details for Product ID: {product_id}")
+
+        # Fetch the main product details
+        cursor.execute("""
+            SELECT ProductID, Name, Description, Price, Size, Color, Material, StockQuantity, CategoryID, SubCategoryID, Featured
+            FROM Product
+            WHERE ProductID = ?
+        """, (product_id,))
+        
+        product = cursor.fetchone()
+        if not product:
+            print(f"Product ID {product_id} not found in the database.")
+            return jsonify({"error": "Product not found"}), 404
+
+        # Print product data fetched from the database
+        print(f"Main product details for Product ID {product_id}: {product}")
+
+        # Format the main product details
+        product_details = {
+            "product_id": product["ProductID"],
+            "name": product["Name"],
+            "description": product["Description"],
+            "price": product["Price"],
+            "size": product["Size"],
+            "color": product["Color"],
+            "material": product["Material"],
+            "stock_quantity": product["StockQuantity"],
+            "category_id": product["CategoryID"],
+            "sub_category_id": product["SubCategoryID"],
+            "featured": bool(product["Featured"]),
+        }
+
+        # Fetch related warehouse stock information
+        cursor.execute("""
+            SELECT WarehouseID, StockQuantity
+            FROM Product_Warehouse
+            WHERE ProductID = ?
+        """, (product_id,))
+        warehouse_stock = [{"warehouse_id": row["WarehouseID"], "quantity": row["StockQuantity"]} for row in cursor.fetchall()]
+        
+        # Print warehouse stock information
+        print(f"Warehouse stock for Product ID {product_id}: {warehouse_stock}")
+        product_details["warehouse_stock"] = warehouse_stock
+
+        # Fetch image paths if available
+        cursor.execute("""
+            SELECT ImageURL FROM Product_Image
+            WHERE ProductID = ?
+        """, (product_id,))
+        images = [row["ImageURL"] for row in cursor.fetchall()]
+        
+        # Print images fetched
+        print(f"Images for Product ID {product_id}: {images}")
+        product_details["images"] = images
+
+        # Fetch category name if available
+        cursor.execute("SELECT Name FROM Category WHERE CategoryID = ?", (product["CategoryID"],))
+        category = cursor.fetchone()
+        if category:
+            product_details["category_name"] = category["Name"]
+            print(f"Category name for Product ID {product_id}: {category['Name']}")
+
+        # Fetch subcategory name if available
+        cursor.execute("SELECT Name FROM SubCategory WHERE SubCategoryID = ?", (product["SubCategoryID"],))
+        subcategory = cursor.fetchone()
+        if subcategory:
+            product_details["sub_category_name"] = subcategory["Name"]
+            print(f"Subcategory name for Product ID {product_id}: {subcategory['Name']}")
+
+        # Final response print
+        print(f"Final product details for Product ID {product_id}: {product_details}")
+        
+        return jsonify({"product": product_details}), 200
+
+    except Exception as e:
+        print(f"Error fetching product details for Product ID {product_id}: {e}")
+        return jsonify({"error": str(e)}), 500
+    finally:
+        conn.close()

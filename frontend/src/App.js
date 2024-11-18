@@ -13,6 +13,7 @@ import ReturnListPage from './components/ReturnListPage/ReturnListPage';
 import InventoryDashboard from './pages/InventoryDashboard';
 import ProtectedRoute from './components/ProtectedRoute';
 import NotFound from './pages/NotFound';
+import ProductDetails from './pages/ProductDetails';
 import AdminPanel from './pages/AdminPanel'; 
 
 function App() {
@@ -22,6 +23,7 @@ function App() {
         <Routes>
           <Route path="/" element={<AuthLogin />} />
           <Route path="/products" element={<ProductListPage />} />
+          <Route path="/products/:productId" element={<ProductDetails />} />
           <Route
             path="/dashboard"
             element={

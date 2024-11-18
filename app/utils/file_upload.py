@@ -19,14 +19,13 @@ def save_uploaded_image(file):
         return upload_path
     return None
 
-
 def save_image_to_server(file, product_id):
     if file and allowed_file(file.filename):
         # Generate a secure filename
         filename = secure_filename(file.filename)
         
         # Define the path based on product ID for better organization
-        product_folder = os.path.join(current_app.config['UPLOAD_FOLDER'], f'products/{product_id}')
+        product_folder = os.path.join(current_app.config['UPLOAD_FOLDER'], 'products', str(product_id))
         
         # Ensure the product-specific upload directory exists
         os.makedirs(product_folder, exist_ok=True)
@@ -37,9 +36,11 @@ def save_image_to_server(file, product_id):
         # Save the file to the organized folder
         file.save(file_path)
         
-        # Return the relative file path to store in the database
-        return os.path.relpath(file_path, start=current_app.config['UPLOAD_FOLDER'])
+        # Return the relative path from 'uploads' folder to store in the database
+        return f"products/{product_id}/{filename}"
     return None
+
+
 
 def save_image_path_to_database(product_id, file_path):
     # Set a longer timeout specifically for this function

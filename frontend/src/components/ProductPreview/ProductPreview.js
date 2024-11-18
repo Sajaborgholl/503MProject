@@ -1,7 +1,8 @@
 // src/components/ProductPreview.js
 import React from 'react';
-import { Card, CardContent, Typography, Button, List, ListItem, ListItemText, Divider } from '@mui/material';
+import { Card, CardContent, Typography, Button, List, ListItem, ListItemText, Divider, IconButton } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
+import VisibilityIcon from '@mui/icons-material/Visibility';
 import LocalMallIcon from '@mui/icons-material/LocalMall'; // Import a product-related icon
 import './ProductPreview.css';
 
@@ -22,13 +23,24 @@ function ProductPreview({ products }) {
             alignItems: 'center',
           }}
         >
-          <LocalMallIcon sx={{ mr: 1 }} /> {/* Add icon with right spacing */}
+          <LocalMallIcon sx={{ mr: 1 }} />
           Top Products
         </Typography>
         <List sx={{ maxHeight: 150, overflowY: 'auto', p: 0 }}>
           {products.slice(0, 2).map((product) => (
             <div key={product.product_id}>
-              <ListItem sx={{ py: 0.5 }}>
+              <ListItem
+                secondaryAction={
+                  <IconButton
+                    edge="end"
+                    aria-label="view"
+                    onClick={() => navigate(`/product-details/${product.product_id}`)} // Link to details page
+                  >
+                    <VisibilityIcon color="primary" /> {/* Eye icon for product view */}
+                  </IconButton>
+                }
+                sx={{ py: 0.5 }}
+              >
                 <ListItemText
                   primary={
                     <Typography variant="body2" sx={{ fontWeight: '500' }}>

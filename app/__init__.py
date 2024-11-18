@@ -10,6 +10,7 @@ from flask_jwt_extended import JWTManager
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from flask_cors import CORS
+import os
 
 # Initialize extensions
 db = SQLAlchemy()
@@ -21,6 +22,7 @@ def create_app():
     
     # Load configuration settings from 'config.py'
     app.config.from_object('config.Config')
+    app.config['UPLOAD_FOLDER'] = os.path.join(os.getcwd(), 'uploads')
 
     # Initialize CORS to allow cross-origin requests
     CORS(app, resources={r"/*": {"origins": "http://localhost:3000"}}, supports_credentials=True)
